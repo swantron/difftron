@@ -172,26 +172,34 @@ func DetectCoverageFormat(filePath string) (string, error) {
 		return "", err
 	}
 
+	// Read first few bytes to check format without reading entire file
 	content := string(data)
+	if len(content) > 1000 {
+		content = content[:1000] // Only check first 1KB
+	}
 	
 	// Check for LCOV format markers (must be first)
-	if strings.HasPrefix(strings.TrimSpace(content), "TN:") || 
-	   strings.HasPrefix(strings.TrimSpace(content), "SF:") ||
-	   strings.Contains(content, "SF:") && strings.Contains(content, "DA:") {
+	trimmed := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmed, "TN:") || 
+	   strings.HasPrefix(trimmed, "SF:") ||
+	   (strings.Contains(content, "SF:") && strings.Contains(content, "DA:")) {
 		return "lcov", nil
 	}
 	
 	// Check for Go coverage format
-	// Go coverage.out files start with "mode:" on first line or are binary
-	if strings.HasPrefix(strings.TrimSpace(content), "mode:") {
+	// Go coverage.out files start with "mode:" on first line
+	if strings.HasPrefix(trimmed, "mode:") {
 		return "go", nil
 	}
 	
-	// If file extension is .out and doesn't look like LCOV, assume Go format
+	// If file extension is .out and starts with binary-looking data or "mode:", assume Go
 	if filepath.Ext(filePath) == ".out" {
-		// Try to verify it's a valid Go coverage file by checking if go tool cover can read it
-		cmd := exec.Command("go", "tool", "cover", "-func="+filePath)
-		if err := cmd.Run(); err == nil {
+		// Check if it looks like Go coverage (starts with "mode:" or is binary)
+		if strings.HasPrefix(trimmed, "mode:") {
+			return "go", nil
+		}
+		// If it's not text (doesn't contain common text markers), assume binary Go format
+		if !strings.Contains(content, "SF:") && !strings.Contains(content, "TN:") {
 			return "go", nil
 		}
 	}

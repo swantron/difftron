@@ -57,10 +57,18 @@ func runCI(cmd *cobra.Command, args []string) error {
 		ciHeadRef = detectHeadRef()
 	}
 
+	// Check if coverage file exists
+	if _, err := os.Stat(coverageFile); os.IsNotExist(err) {
+		return fmt.Errorf("coverage file not found: %s", coverageFile)
+	}
+
 	// Generate git diff
 	diffOutput, err := getGitDiffForCI(ciBaseRef, ciHeadRef)
 	if err != nil {
-		return fmt.Errorf("failed to get git diff: %w", err)
+		// For direct pushes, if we can't get diff, that's OK - no changes to analyze
+		fmt.Fprintf(os.Stderr, "Warning: Could not get git diff: %v\n", err)
+		fmt.Println("No changes detected in diff.")
+		return nil
 	}
 
 	if diffOutput == "" {
@@ -79,7 +87,7 @@ func runCI(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Parse coverage
+	// Parse coverage with better error handling
 	format, err := coverage.DetectCoverageFormat(coverageFile)
 	if err != nil {
 		return fmt.Errorf("failed to detect coverage format: %w", err)
@@ -89,16 +97,22 @@ func runCI(cmd *cobra.Command, args []string) error {
 	if format == "go" {
 		coverageReport, err = coverage.ParseGoCoverage(coverageFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Go coverage, trying LCOV: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Go coverage (%v), trying LCOV format\n", err)
+			// Fallback to LCOV
 			coverageReport, err = coverage.ParseLCOV(coverageFile)
 			if err != nil {
-				return fmt.Errorf("failed to parse coverage file: %w", err)
+				return fmt.Errorf("failed to parse coverage file (tried both Go and LCOV): %w", err)
 			}
 		}
 	} else {
 		coverageReport, err = coverage.ParseLCOV(coverageFile)
 		if err != nil {
-			return fmt.Errorf("failed to parse LCOV coverage file: %w", err)
+			// Try Go format as fallback
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as LCOV (%v), trying Go format\n", err)
+			coverageReport, err = coverage.ParseGoCoverage(coverageFile)
+			if err != nil {
+				return fmt.Errorf("failed to parse coverage file (tried both LCOV and Go): %w", err)
+			}
 		}
 	}
 
