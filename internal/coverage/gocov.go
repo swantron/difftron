@@ -174,14 +174,26 @@ func DetectCoverageFormat(filePath string) (string, error) {
 
 	content := string(data)
 	
-	// Check for LCOV format markers
-	if strings.Contains(content, "SF:") || strings.Contains(content, "DA:") {
+	// Check for LCOV format markers (must be first)
+	if strings.HasPrefix(strings.TrimSpace(content), "TN:") || 
+	   strings.HasPrefix(strings.TrimSpace(content), "SF:") ||
+	   strings.Contains(content, "SF:") && strings.Contains(content, "DA:") {
 		return "lcov", nil
 	}
 	
-	// Check for Go coverage format (binary or text)
-	if strings.Contains(content, "mode:") || filepath.Ext(filePath) == ".out" {
+	// Check for Go coverage format
+	// Go coverage.out files start with "mode:" on first line or are binary
+	if strings.HasPrefix(strings.TrimSpace(content), "mode:") {
 		return "go", nil
+	}
+	
+	// If file extension is .out and doesn't look like LCOV, assume Go format
+	if filepath.Ext(filePath) == ".out" {
+		// Try to verify it's a valid Go coverage file by checking if go tool cover can read it
+		cmd := exec.Command("go", "tool", "cover", "-func="+filePath)
+		if err := cmd.Run(); err == nil {
+			return "go", nil
+		}
 	}
 	
 	// Default to LCOV

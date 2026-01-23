@@ -93,7 +93,12 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		// Parse Go's native coverage format
 		coverageReport, err = coverage.ParseGoCoverage(coverageFile)
 		if err != nil {
-			return fmt.Errorf("failed to parse Go coverage file: %w", err)
+			// Fallback to LCOV if Go parsing fails
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Go coverage, trying LCOV format: %v\n", err)
+			coverageReport, err = coverage.ParseLCOV(coverageFile)
+			if err != nil {
+				return fmt.Errorf("failed to parse coverage file (tried both Go and LCOV formats): %w", err)
+			}
 		}
 	} else {
 		// Parse LCOV format

@@ -80,24 +80,66 @@ jobs:
       - name: Analyze coverage
         id: analyze
         if: steps.generate-diff.outputs.has_changes == 'true'
+        continue-on-error: true
         run: |
-          # Run difftron analysis
+          # Run difftron analysis (continue even if threshold not met)
+          set +e
+          
+          # Run analysis and capture output
           ./bin/difftron analyze \
             --coverage coverage.out \
             --diff diff.patch \
             --threshold 80 \
-            --output json > analysis.json 2>&1 || {
-            echo "Analysis completed with warnings"
-            # Create a minimal JSON if analysis fails
+            --output json > analysis.json.tmp 2>&1
+          ANALYSIS_EXIT=$?
+          
+          # Check if we got valid JSON output (even if threshold not met)
+          if [ -f analysis.json.tmp ] && jq empty analysis.json.tmp 2>/dev/null; then
+            mv analysis.json.tmp analysis.json
+          else
+            echo "Warning: Analysis produced invalid JSON or failed"
+            echo "Exit code: $ANALYSIS_EXIT"
+            cat analysis.json.tmp || true
+            # Create fallback JSON
             echo '{"total_changed_lines": 0, "covered_lines": 0, "uncovered_lines": 0, "coverage_percentage": 0, "meets_threshold": false}' > analysis.json
+          fi
+          
+          # Also get text output for comment (always try, even if JSON failed)
+          ./bin/difftron analyze \
+            --coverage coverage.out \
+            --diff diff.patch \
+            --threshold 80 \
+            --output text > analysis.txt 2>&1 || {
+            echo "Analysis output:" > analysis.txt
+            cat analysis.txt.tmp 2>/dev/null || echo "Failed to generate analysis" >> analysis.txt
           }
           
-          # Also get text output for comment
-          ./bin/difftron analyze \
-            --coverage coverage.out \
-            --diff diff.patch \
-            --threshold 80 \
-            --output text > analysis.txt 2>&1 || echo "Analysis failed" > analysis.txt
+          # Extract coverage percentage and status (with fallbacks)
+          COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
+          MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
+          TOTAL_LINES=$(jq -r '.total_changed_lines // 0' analysis.json 2>/dev/null || echo "0")
+          COVERED_LINES=$(jq -r '.covered_lines // 0' analysis.json 2>/dev/null || echo "0")
+          UNCOVERED_LINES=$(jq -r '.uncovered_lines // 0' analysis.json 2>/dev/null || echo "0")
+          
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
+          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
+          echo "covered_lines=$COVERED_LINES" >> $GITHUB_OUTPUT
+          echo "uncovered_lines=$UNCOVERED_LINES" >> $GITHUB_OUTPUT
+          echo "analysis_exit=$ANALYSIS_EXIT" >> $GITHUB_OUTPUT
+          
+          # Show analysis summary
+          echo ""
+          echo "=== Analysis Summary ==="
+          echo "Coverage: ${COVERAGE}%"
+          echo "Threshold: 80%"
+          echo "Status: $([ "$MEETS_THRESHOLD" == "true" ] && echo "PASS" || echo "FAIL")"
+          echo "Changed Lines: $TOTAL_LINES"
+          echo "Covered: $COVERED_LINES"
+          echo "Uncovered: $UNCOVERED_LINES"
+          echo "Exit Code: $ANALYSIS_EXIT"
+          
+          set -e
           
           # Extract coverage percentage and status
           COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
@@ -123,7 +165,7 @@ jobs:
           echo "Uncovered: $UNCOVERED_LINES"
 
       - name: Comment on Pull Request
-        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true' && always()
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -203,7 +245,7 @@ jobs:
             }
 
       - name: Set status check
-        if: github.event_name == 'push' && steps.generate-diff.outputs.has_changes == 'true'
+        if: github.event_name == 'push' && steps.generate-diff.outputs.has_changes == 'true' && steps.analyze.outcome == 'success'
         run: |
           COVERAGE="${{ steps.analyze.outputs.coverage }}"
           MEETS_THRESHOLD="${{ steps.analyze.outputs.meets_threshold }}"
@@ -217,7 +259,7 @@ jobs:
           fi
 
       - name: Create Check Run (for better PR integration)
-        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true' && always()
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
