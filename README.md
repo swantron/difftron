@@ -117,11 +117,292 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 ---
 
-## 📈 Roadmap
+## 🛠 Development
 
-* [ ] **v0.1**: CLI Core (Diff + LCOV parsing).
+### Prerequisites
+
+- Go 1.21 or later
+- Git (for testing git diff functionality)
+- Make (optional, for convenience commands)
+
+### Setup
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd difftron
+
+# Initialize Go module (if not already done)
+go mod init github.com/swantron/difftron
+
+# Install dependencies
+go mod tidy
+
+# Run tests
+go test ./...
+
+# Build the CLI
+go build -o difftron ./cmd/difftron
+
+# Or use Make (once Makefile is created)
+make build
+make test
+```
+
+### Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run specific package tests
+go test ./internal/hunk/...
+```
+
+---
+
+## 📈 Implementation Plan
+
+### Phase 1: Foundation (v0.1) - CLI Core
+
+**Goal**: Build the core CLI with git diff parsing and LCOV coverage analysis.
+
+#### Tasks:
+1. **Project Setup**
+   - Initialize Go module (`go mod init`)
+   - Set up project structure (`cmd/`, `internal/`, `pkg/`)
+   - Add CLI framework (Cobra)
+   - Create Makefile for common tasks
+
+2. **Hunk Engine** (`internal/hunk/`)
+   - Implement `ParseGitDiff()` to extract changed lines
+   - Handle unified diff format parsing
+   - Support both staged and unstaged diffs
+   - Map relative diff positions to absolute line numbers
+   - Unit tests with sample diff outputs
+
+3. **Coverage Engine** (`internal/coverage/`)
+   - Implement `ParseLCOV()` for `.info` files
+   - Build `File -> Line -> HitCount` data structure
+   - Handle file path normalization (relative vs absolute)
+   - Error handling for malformed LCOV files
+   - Unit tests with sample LCOV data
+
+4. **Core Analysis** (`internal/analyzer/`)
+   - Intersect diff hunks with coverage data
+   - Calculate coverage percentage for changed lines
+   - Identify uncovered lines in diffs
+   - Generate coverage report summary
+
+5. **CLI Interface** (`cmd/difftron/`)
+   - `difftron analyze` command
+   - Flags: `--diff`, `--coverage`, `--threshold`, `--output`
+   - JSON and human-readable output formats
+   - Exit codes: 0 (pass), 1 (fail), 2 (error)
+
+**Deliverables**: Working CLI that can analyze a git diff against LCOV coverage.
+
+---
+
+### Phase 2: Risk Scoring (v0.2)
+
+**Goal**: Add git churn analysis and risk-based prioritization.
+
+#### Tasks:
+1. **Git Churn Analysis** (`internal/churn/`)
+   - Calculate file change frequency
+   - Analyze commit history for hot spots
+   - Weight recent changes more heavily
+   - Cache churn data for performance
+
+2. **Risk Engine** (`internal/risk/`)
+   - Combine coverage gaps with churn scores
+   - Assign risk levels: LOW, MEDIUM, HIGH, CRITICAL
+   - Prioritize uncovered lines in high-churn files
+   - Generate risk heatmap report
+
+3. **Enhanced Reporting**
+   - Color-coded output (red/yellow/green)
+   - Risk-based sorting of issues
+   - File-level and line-level risk scores
+
+**Deliverables**: Risk-aware coverage analysis with prioritized alerts.
+
+---
+
+### Phase 3: CI/CD Integration (v0.3)
+
+**Goal**: Integrate with GitHub Actions and GitLab CI.
+
+#### Tasks:
+1. **GitHub Action** (`.github/workflows/`)
+   - Action YAML template
+   - Auto-detect coverage files
+   - Post PR comments with coverage report
+   - Support for pull_request events
+
+2. **GitLab CI** (`.gitlab-ci.yml`)
+   - CI job template
+   - Merge request comment integration
+   - Artifact generation
+
+3. **Comment Formatting**
+   - Markdown report generation
+   - Collapsible sections for large diffs
+   - Links to uncovered lines
+   - Summary statistics
+
+**Deliverables**: Ready-to-use CI/CD templates for GitHub and GitLab.
+
+---
+
+### Phase 4: AI Test Generation (v0.4)
+
+**Goal**: Generate test code suggestions using Gemini AI.
+
+#### Tasks:
+1. **Gemini Integration** (`internal/ai/`)
+   - Google AI SDK integration
+   - Prompt engineering for test generation
+   - Context-aware code suggestions
+   - Support for multiple languages (Go, TypeScript, Python, etc.)
+
+2. **Test Generation Engine**
+   - Extract uncovered code snippets
+   - Generate language-specific test templates
+   - Include imports and setup code
+   - Format output as code blocks
+
+3. **CLI Enhancement**
+   - `difftron generate` command
+   - `--ai-provider` flag (default: gemini)
+   - `--language` flag for test generation
+   - `--output-file` for saving generated tests
+
+**Deliverables**: AI-powered test generation for uncovered code paths.
+
+---
+
+## 🏗 Project Structure
+
+```
+difftron/
+├── cmd/
+│   └── difftron/
+│       └── main.go              # CLI entry point
+├── internal/
+│   ├── hunk/
+│   │   ├── parser.go            # Git diff parsing
+│   │   └── parser_test.go
+│   ├── coverage/
+│   │   ├── lcov.go              # LCOV parser
+│   │   ├── cobertura.go         # Cobertura parser (v0.2)
+│   │   └── coverage_test.go
+│   ├── analyzer/
+│   │   ├── analyzer.go          # Core analysis logic
+│   │   └── analyzer_test.go
+│   ├── churn/
+│   │   ├── churn.go             # Git churn calculation (v0.2)
+│   │   └── churn_test.go
+│   ├── risk/
+│   │   ├── scorer.go            # Risk scoring (v0.2)
+│   │   └── scorer_test.go
+│   └── ai/
+│       ├── gemini.go            # Gemini integration (v0.4)
+│       └── generator.go         # Test generation (v0.4)
+├── pkg/
+│   └── report/
+│       ├── formatter.go         # Report formatting
+│       └── markdown.go          # Markdown generation
+├── .github/
+│   └── workflows/
+│       └── difftron-action.yml  # GitHub Action (v0.3)
+├── .gitlab-ci.yml               # GitLab CI template (v0.3)
+├── go.mod
+├── go.sum
+├── Makefile
+├── README.md
+└── LICENSE
+```
+
+---
+
+## 🚀 Quick Start (After v0.1)
+
+```bash
+# Install
+go install github.com/swantron/difftron/cmd/difftron@latest
+
+# Analyze current diff against coverage
+difftron analyze --coverage coverage.info
+
+# Analyze specific diff
+git diff main...feature-branch | difftron analyze --coverage coverage.info
+
+# Set coverage threshold
+difftron analyze --coverage coverage.info --threshold 80
+
+# Generate JSON report
+difftron analyze --coverage coverage.info --output json > report.json
+```
+
+---
+
+## 📈 Roadmap Summary
+
+* [x] **v0.1**: CLI Core (Diff + LCOV parsing). ✅ **COMPLETE**
 * [ ] **v0.2**: Risk Scoring (Git Churn + Complexity).
 * [ ] **v0.3**: GitHub Action/GitLab CI Commenter.
 * [ ] **v0.4**: Gemini-powered Test Generation.
+
+---
+
+## ✅ Current Status (v0.1)
+
+**Phase 1 is complete!** The core CLI functionality is implemented and tested:
+
+### Implemented Features:
+- ✅ Git diff parsing (Hunk Engine)
+- ✅ LCOV coverage file parsing (Coverage Engine)
+- ✅ Core analysis engine (intersects diffs with coverage)
+- ✅ CLI interface with `analyze` command
+- ✅ Text and JSON output formats
+- ✅ Coverage threshold checking
+- ✅ Comprehensive test coverage
+
+### Usage Example:
+
+```bash
+# Analyze current working directory changes
+difftron analyze --coverage coverage.info
+
+# Analyze with custom threshold
+difftron analyze --coverage coverage.info --threshold 90
+
+# Analyze specific git diff range
+difftron analyze --coverage coverage.info --base main --head feature-branch
+
+# JSON output
+difftron analyze --coverage coverage.info --output json
+
+# Use a pre-generated diff file
+git diff main...feature > diff.patch
+difftron analyze --coverage coverage.info --diff diff.patch
+
+# Test with included fixtures
+difftron analyze --coverage testdata/fixtures/tronswan-coverage.info --diff testdata/fixtures/sample.diff
+```
+
+### Next Steps:
+- Implement Risk Engine (git churn analysis) for v0.2
+- Add Cobertura XML parser support
+- Create CI/CD integration templates
+- Add Gemini AI integration for test generation
 
 ---

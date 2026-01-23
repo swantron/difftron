@@ -1,0 +1,39 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 1234567..abcdefg 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -10,5 +10,7 @@ function App() {
+   return (
+     <div className="app">
+       <Router>
++        <Route path="/new-feature" element={<NewFeature />} />
+         <Route path="/hello" element={<Hello />} />
+         <Route path="/resume" element={<Resume />} />
+       </Router>
+     </div>
+   );
+ }
+
+diff --git a/src/utils/logger.ts b/src/utils/logger.ts
+index 1111111..2222222 100644
+--- a/src/utils/logger.ts
++++ b/src/utils/logger.ts
+@@ -94,6 +94,8 @@ class Logger {
+   private log(level: LogLevel, message: string, context?: LogContext): void {
+     if (!this.shouldLog(level)) return;
+ 
++    // New logging enhancement
++    const enhancedMessage = this.enhanceMessage(message);
+     const logEntry = this.createLogEntry(level, message, context);
+ 
+     // Console logging (development and debugging)
+@@ -104,6 +106,10 @@ class Logger {
+     if (this.config.enableProductionLogging) {
+       this.logToProduction(logEntry);
+     }
+   }
++
++  private enhanceMessage(message: string): string {
++    return `[Enhanced] ${message}`;
++  }
+ }
