@@ -20,7 +20,7 @@ Difftron parses the `git diff` to identify the specific line numbers modified in
 
 ---
 
-## 🛠 Architecture
+## Architecture
 
 | Component | Responsibility |
 | --- | --- |
@@ -31,7 +31,7 @@ Difftron parses the `git diff` to identify the specific line numbers modified in
 
 ---
 
-## 💻 Implementation Highlights (Go)
+## Implementation Highlights (Go)
 
 ### 1. The Hunk-to-Line Mapper
 
@@ -108,7 +108,7 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Universal Language Support**: If your language exports LCOV or Cobertura (Go, TS, Java, Python, C++, etc.), Difftron can analyze it.
 * **Risk Heatmaps**: Uses Git Churn data to identify "Hot Spot" files. Low coverage in a high-churn file triggers a **CRITICAL** alert.
@@ -117,13 +117,12 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 ---
 
-## 🛠 Development
+## Development
 
 ### Prerequisites
 
 - Go 1.21 or later
 - Git (for testing git diff functionality)
-- Make (optional, for convenience commands)
 
 ### Setup
 
@@ -142,11 +141,41 @@ go mod tidy
 go test ./...
 
 # Build the CLI
-go build -o difftron ./cmd/difftron
+go build -o bin/difftron ./cmd/difftron
 
-# Or use Make (once Makefile is created)
-make build
-make test
+# Or use the task runner
+go run scripts/task.go build
+go run scripts/task.go test
+```
+
+### Task Runner
+
+Difftron uses a Go-based task runner instead of a Makefile. This keeps the project 100% Go and avoids external dependencies.
+
+```bash
+# Build the binary
+go run scripts/task.go build
+
+# Run all tests
+go run scripts/task.go test
+
+# Run tests with coverage
+go run scripts/task.go test-coverage
+
+# Run integration tests with fixtures
+go run scripts/task.go test-integration
+
+# Install the binary
+go run scripts/task.go install
+
+# Format code
+go run scripts/task.go fmt
+
+# Clean build artifacts
+go run scripts/task.go clean
+
+# Run the CLI locally
+go run scripts/task.go run analyze --coverage coverage.info
 ```
 
 ### Testing
@@ -167,7 +196,7 @@ go test ./internal/hunk/...
 
 ---
 
-## 📈 Implementation Plan
+## Implementation Plan
 
 ### Phase 1: Foundation (v0.1) - CLI Core
 
@@ -178,7 +207,7 @@ go test ./internal/hunk/...
    - Initialize Go module (`go mod init`)
    - Set up project structure (`cmd/`, `internal/`, `pkg/`)
    - Add CLI framework (Cobra)
-   - Create Makefile for common tasks
+   - Create Go-based task runner for common tasks
 
 2. **Hunk Engine** (`internal/hunk/`)
    - Implement `ParseGitDiff()` to extract changed lines
@@ -289,7 +318,7 @@ go test ./internal/hunk/...
 
 ---
 
-## 🏗 Project Structure
+## Project Structure
 
 ```
 difftron/
@@ -320,20 +349,23 @@ difftron/
 │   └── report/
 │       ├── formatter.go         # Report formatting
 │       └── markdown.go          # Markdown generation
+├── scripts/
+│   └── task.go                  # Go-based task runner
+├── testdata/
+│   └── fixtures/                # Test fixtures
 ├── .github/
 │   └── workflows/
 │       └── difftron-action.yml  # GitHub Action (v0.3)
 ├── .gitlab-ci.yml               # GitLab CI template (v0.3)
 ├── go.mod
 ├── go.sum
-├── Makefile
 ├── README.md
 └── LICENSE
 ```
 
 ---
 
-## 🚀 Quick Start (After v0.1)
+## Quick Start (After v0.1)
 
 ```bash
 # Install
@@ -354,27 +386,27 @@ difftron analyze --coverage coverage.info --output json > report.json
 
 ---
 
-## 📈 Roadmap Summary
+## Roadmap Summary
 
-* [x] **v0.1**: CLI Core (Diff + LCOV parsing). ✅ **COMPLETE**
+* [x] **v0.1**: CLI Core (Diff + LCOV parsing). **COMPLETE**
 * [ ] **v0.2**: Risk Scoring (Git Churn + Complexity).
 * [ ] **v0.3**: GitHub Action/GitLab CI Commenter.
 * [ ] **v0.4**: Gemini-powered Test Generation.
 
 ---
 
-## ✅ Current Status (v0.1)
+## Current Status (v0.1)
 
 **Phase 1 is complete!** The core CLI functionality is implemented and tested:
 
 ### Implemented Features:
-- ✅ Git diff parsing (Hunk Engine)
-- ✅ LCOV coverage file parsing (Coverage Engine)
-- ✅ Core analysis engine (intersects diffs with coverage)
-- ✅ CLI interface with `analyze` command
-- ✅ Text and JSON output formats
-- ✅ Coverage threshold checking
-- ✅ Comprehensive test coverage
+- Git diff parsing (Hunk Engine)
+- LCOV coverage file parsing (Coverage Engine)
+- Core analysis engine (intersects diffs with coverage)
+- CLI interface with `analyze` command
+- Text and JSON output formats
+- Coverage threshold checking
+- Comprehensive test coverage
 
 ### Usage Example:
 
