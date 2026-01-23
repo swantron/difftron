@@ -20,8 +20,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history for git diff
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -32,167 +31,53 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: |
-          go test -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out > coverage.txt || true
+        run: go test -coverprofile=coverage.out ./...
 
       - name: Build difftron
         run: go build -o bin/difftron ./cmd/difftron
 
-      - name: Determine diff base
-        id: diff-base
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # For PRs, compare against the base branch
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            echo "base=$BASE_SHA" >> $GITHUB_OUTPUT
-            echo "head=$HEAD_SHA" >> $GITHUB_OUTPUT
-            echo "diff_base=$BASE_SHA" >> $GITHUB_OUTPUT
-            echo "diff_head=$HEAD_SHA" >> $GITHUB_OUTPUT
-          else
-            # For pushes, compare against previous commit
-            BASE_SHA="${{ github.event.before }}"
-            HEAD_SHA="${{ github.sha }}"
-            echo "base=$BASE_SHA" >> $GITHUB_OUTPUT
-            echo "head=$HEAD_SHA" >> $GITHUB_OUTPUT
-            echo "diff_base=$BASE_SHA" >> $GITHUB_OUTPUT
-            echo "diff_head=$HEAD_SHA" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate git diff
-        id: generate-diff
-        run: |
-          git diff ${{ steps.diff-base.outputs.diff_base }}..${{ steps.diff-base.outputs.diff_head }} > diff.patch || echo "" > diff.patch
-          
-          # Check if diff is empty
-          if [ ! -s diff.patch ]; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in diff"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Diff generated successfully"
-            # Show summary
-            echo "Diff summary:"
-            git diff --stat ${{ steps.diff-base.outputs.diff_base }}..${{ steps.diff-base.outputs.diff_head }} || true
-          fi
-
-      - name: Analyze coverage
-        id: analyze
-        if: steps.generate-diff.outputs.has_changes == 'true'
+      - name: Run difftron CI analysis
+        id: difftron
         continue-on-error: true
         run: |
-          # Run difftron analysis (continue even if threshold not met)
-          set +e
-          
-          # Run analysis and capture output
-          ./bin/difftron analyze \
-            --coverage coverage.out \
-            --diff diff.patch \
+          ./bin/difftron ci \
             --threshold 80 \
-            --output json > analysis.json.tmp 2>&1
-          ANALYSIS_EXIT=$?
-          
-          # Check if we got valid JSON output (even if threshold not met)
-          if [ -f analysis.json.tmp ] && jq empty analysis.json.tmp 2>/dev/null; then
-            mv analysis.json.tmp analysis.json
-          else
-            echo "Warning: Analysis produced invalid JSON or failed"
-            echo "Exit code: $ANALYSIS_EXIT"
-            cat analysis.json.tmp || true
-            # Create fallback JSON
-            echo '{"total_changed_lines": 0, "covered_lines": 0, "uncovered_lines": 0, "coverage_percentage": 0, "meets_threshold": false}' > analysis.json
-          fi
-          
-          # Also get text output for comment (always try, even if JSON failed)
-          ./bin/difftron analyze \
-            --coverage coverage.out \
-            --diff diff.patch \
-            --threshold 80 \
-            --output text > analysis.txt 2>&1 || {
-            echo "Analysis output:" > analysis.txt
-            cat analysis.txt.tmp 2>/dev/null || echo "Failed to generate analysis" >> analysis.txt
-          }
-          
-          # Extract coverage percentage and status (with fallbacks)
-          COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
-          MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
-          TOTAL_LINES=$(jq -r '.total_changed_lines // 0' analysis.json 2>/dev/null || echo "0")
-          COVERED_LINES=$(jq -r '.covered_lines // 0' analysis.json 2>/dev/null || echo "0")
-          UNCOVERED_LINES=$(jq -r '.uncovered_lines // 0' analysis.json 2>/dev/null || echo "0")
-          
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
-          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
-          echo "covered_lines=$COVERED_LINES" >> $GITHUB_OUTPUT
-          echo "uncovered_lines=$UNCOVERED_LINES" >> $GITHUB_OUTPUT
-          echo "analysis_exit=$ANALYSIS_EXIT" >> $GITHUB_OUTPUT
-          
-          # Show analysis summary
-          echo ""
-          echo "=== Analysis Summary ==="
-          echo "Coverage: ${COVERAGE}%"
-          echo "Threshold: 80%"
-          echo "Status: $([ "$MEETS_THRESHOLD" == "true" ] && echo "PASS" || echo "FAIL")"
-          echo "Changed Lines: $TOTAL_LINES"
-          echo "Covered: $COVERED_LINES"
-          echo "Uncovered: $UNCOVERED_LINES"
-          echo "Exit Code: $ANALYSIS_EXIT"
-          
-          set -e
-          
-          # Extract coverage percentage and status
-          COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
-          MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
-          TOTAL_LINES=$(jq -r '.total_changed_lines // 0' analysis.json 2>/dev/null || echo "0")
-          COVERED_LINES=$(jq -r '.covered_lines // 0' analysis.json 2>/dev/null || echo "0")
-          UNCOVERED_LINES=$(jq -r '.uncovered_lines // 0' analysis.json 2>/dev/null || echo "0")
-          
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
-          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
-          echo "covered_lines=$COVERED_LINES" >> $GITHUB_OUTPUT
-          echo "uncovered_lines=$UNCOVERED_LINES" >> $GITHUB_OUTPUT
-          
-          # Show analysis summary
-          echo ""
-          echo "=== Analysis Summary ==="
-          echo "Coverage: ${COVERAGE}%"
-          echo "Threshold: 80%"
-          echo "Status: $([ "$MEETS_THRESHOLD" == "true" ] && echo "PASS" || echo "FAIL")"
-          echo "Changed Lines: $TOTAL_LINES"
-          echo "Covered: $COVERED_LINES"
-          echo "Uncovered: $UNCOVERED_LINES"
+            --output-file analysis.json \
+            coverage.out
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
 
       - name: Comment on Pull Request
-        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true' && always()
+        if: github.event_name == 'pull_request' && always() && steps.difftron.outcome != 'skipped'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
-            // Read analysis results
-            let analysisText = '';
-            let analysisJson = {};
+            let analysis = {
+              coverage_percentage: 0,
+              meets_threshold: false,
+              total_changed_lines: 0,
+              covered_lines: 0,
+              uncovered_lines: 0,
+              files: {}
+            };
             
             try {
-              analysisText = fs.readFileSync('analysis.txt', 'utf8');
-              analysisJson = JSON.parse(fs.readFileSync('analysis.json', 'utf8'));
+              if (fs.existsSync('analysis.json')) {
+                analysis = JSON.parse(fs.readFileSync('analysis.json', 'utf8'));
+              }
             } catch (error) {
-              console.log('Error reading analysis files:', error);
-              analysisText = 'Analysis completed but could not read results.';
-              analysisJson = {
-                coverage_percentage: 0,
-                meets_threshold: false,
-                total_changed_lines: 0,
-                covered_lines: 0,
-                uncovered_lines: 0
-              };
+              console.log('Error reading analysis.json:', error);
             }
             
-            const coverage = analysisJson.coverage_percentage || 0;
-            const threshold = 80;
+            const coverage = analysis.coverage_percentage || 0;
+            const threshold = analysis.threshold || 80;
             const emoji = coverage >= threshold ? '✅' : '❌';
             const status = coverage >= threshold ? 'PASS' : 'FAIL';
             
@@ -208,76 +93,64 @@ jobs:
               comment.body.includes('Difftron Coverage Analysis')
             );
             
+            let filesSummary = '';
+            if (analysis.files && Object.keys(analysis.files).length > 0) {
+              filesSummary = '\n### Files\n';
+              for (const [file, data] of Object.entries(analysis.files)) {
+                filesSummary += `- **${file}**: ${data.coverage_percentage.toFixed(1)}% coverage`;
+                if (data.uncovered_line_numbers && data.uncovered_line_numbers.length > 0) {
+                  filesSummary += ` (uncovered lines: ${data.uncovered_line_numbers.join(', ')})`;
+                }
+                filesSummary += '\n';
+              }
+            }
+            
             const body = '## ' + emoji + ' Difftron Coverage Analysis\n\n' +
               '**Coverage:** ' + coverage.toFixed(1) + '% (threshold: ' + threshold + '%)\n' +
               '**Status:** ' + status + '\n\n' +
               '### Summary\n' +
-              '- **Total Changed Lines:** ' + (analysisJson.total_changed_lines || 0) + '\n' +
-              '- **Covered Lines:** ' + (analysisJson.covered_lines || 0) + '\n' +
-              '- **Uncovered Lines:** ' + (analysisJson.uncovered_lines || 0) + '\n\n' +
-              '<details>\n' +
-              '<summary>📊 Detailed Report</summary>\n\n' +
-              '```\n' +
-              analysisText + '\n' +
-              '```\n\n' +
-              '</details>\n\n' +
-              '---\n' +
+              '- **Total Changed Lines:** ' + (analysis.total_changed_lines || 0) + '\n' +
+              '- **Covered Lines:** ' + (analysis.covered_lines || 0) + '\n' +
+              '- **Uncovered Lines:** ' + (analysis.uncovered_lines || 0) + '\n' +
+              filesSummary +
+              '\n---\n' +
               '*This comment is automatically updated on each push to the PR.*';
             
             if (botComment) {
-              // Update existing comment
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: botComment.id,
                 body: body
               });
-              console.log('Updated existing PR comment');
             } else {
-              // Create new comment
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body: body
               });
-              console.log('Created new PR comment');
             }
 
-      - name: Set status check
-        if: github.event_name == 'push' && steps.generate-diff.outputs.has_changes == 'true' && steps.analyze.outcome == 'success'
-        run: |
-          COVERAGE="${{ steps.analyze.outputs.coverage }}"
-          MEETS_THRESHOLD="${{ steps.analyze.outputs.meets_threshold }}"
-          
-          if [ "$MEETS_THRESHOLD" == "true" ]; then
-            echo "✅ Coverage check passed: ${COVERAGE}%"
-            exit 0
-          else
-            echo "❌ Coverage check failed: ${COVERAGE}% (threshold: 80%)"
-            exit 1
-          fi
-
-      - name: Create Check Run (for better PR integration)
-        if: github.event_name == 'pull_request' && steps.generate-diff.outputs.has_changes == 'true' && always()
+      - name: Create Check Run
+        if: github.event_name == 'pull_request' && always() && steps.difftron.outcome != 'skipped'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            let analysisJson = {};
+            let analysis = { coverage_percentage: 0, meets_threshold: false };
             
             try {
-              analysisJson = JSON.parse(fs.readFileSync('analysis.json', 'utf8'));
+              if (fs.existsSync('analysis.json')) {
+                analysis = JSON.parse(fs.readFileSync('analysis.json', 'utf8'));
+              }
             } catch (error) {
-              analysisJson = {
-                coverage_percentage: 0,
-                meets_threshold: false
-              };
+              // Use defaults
             }
             
-            const coverage = analysisJson.coverage_percentage || 0;
-            const threshold = 80;
+            const coverage = analysis.coverage_percentage || 0;
+            const threshold = analysis.threshold || 80;
             const conclusion = coverage >= threshold ? 'success' : 'failure';
             const title = coverage >= threshold 
               ? `Coverage check passed: ${coverage.toFixed(1)}%`
@@ -292,19 +165,22 @@ jobs:
               conclusion: conclusion,
               output: {
                 title: title,
-                summary: `Coverage: ${coverage.toFixed(1)}% | Changed Lines: ${analysisJson.total_changed_lines || 0} | Covered: ${analysisJson.covered_lines || 0} | Uncovered: ${analysisJson.uncovered_lines || 0}`,
-                text: fs.readFileSync('analysis.txt', 'utf8').substring(0, 65535) // GitHub limit
+                summary: `Coverage: ${coverage.toFixed(1)}% | Changed Lines: ${analysis.total_changed_lines || 0} | Covered: ${analysis.covered_lines || 0} | Uncovered: ${analysis.uncovered_lines || 0}`
               }
             });
 
+      - name: Fail if threshold not met
+        if: github.event_name == 'push' && steps.difftron.outcome == 'failure'
+        run: |
+          echo "Coverage threshold not met"
+          exit 1
+
       - name: Upload coverage artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ github.run_number }}
           path: |
             coverage.out
-            coverage.txt
             analysis.json
-            analysis.txt
-            diff.patch
           retention-days: 7
