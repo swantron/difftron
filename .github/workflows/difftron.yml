@@ -241,7 +241,7 @@ jobs:
               }
             });
 
-      - name: Gate: Fail if threshold not met (PRs only)
+      - name: Gate PRs if threshold not met
         if: always() && github.event_name == 'pull_request' && steps.difftron.outcome != 'skipped'
         run: |
           # Read from JSON file (most reliable)
