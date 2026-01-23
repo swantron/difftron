@@ -135,9 +135,9 @@ index 123..456 100644
 
 func TestAnalysisResult_MeetsThreshold(t *testing.T) {
 	result := &AnalysisResult{
-		TotalChangedLines: 10,
-		CoveredLines:      8,
-		UncoveredLines:   2,
+		TotalChangedLines:  10,
+		CoveredLines:       8,
+		UncoveredLines:     2,
 		CoveragePercentage: 80.0,
 	}
 

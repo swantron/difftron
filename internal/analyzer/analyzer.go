@@ -23,10 +23,10 @@ type AnalysisResult struct {
 
 // FileResult contains analysis results for a single file
 type FileResult struct {
-	FilePath          string
-	TotalChangedLines int
-	CoveredLines      int
-	UncoveredLines    int
+	FilePath           string
+	TotalChangedLines  int
+	CoveredLines       int
+	UncoveredLines     int
 	CoveragePercentage float64
 	// UncoveredLineNumbers lists the line numbers that are not covered
 	UncoveredLineNumbers []int
@@ -68,9 +68,9 @@ func Analyze(diffResult *hunk.ParseResult, coverageReport *coverage.Report) (*An
 // analyzeFile analyzes coverage for a single file
 func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *coverage.Report) *FileResult {
 	fileResult := &FileResult{
-		FilePath:            filePath,
+		FilePath:             filePath,
 		UncoveredLineNumbers: make([]int, 0),
-		CoveredLineNumbers:  make([]int, 0),
+		CoveredLineNumbers:   make([]int, 0),
 	}
 
 	// Try multiple path variations to match coverage data

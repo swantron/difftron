@@ -69,9 +69,9 @@ index 333..444 100644
 			diffOutput: `diff --git a/file.go b/file.go
 index 123..123 100644
 `,
-			wantFiles: []string{},
-			wantLines: map[string][]int{},
-			wantAdded: map[string][]int{},
+			wantFiles:   []string{},
+			wantLines:   map[string][]int{},
+			wantAdded:   map[string][]int{},
 			expectError: false,
 		},
 		{
