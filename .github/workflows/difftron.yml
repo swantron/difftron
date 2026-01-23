@@ -166,27 +166,21 @@ jobs:
               comment.body.includes('Difftron Coverage Analysis')
             );
             
-            const body = `## ${emoji} Difftron Coverage Analysis
-
-**Coverage:** ${coverage.toFixed(1)}% (threshold: ${threshold}%)
-**Status:** ${status}
-
-### Summary
-- **Total Changed Lines:** ${analysisJson.total_changed_lines || 0}
-- **Covered Lines:** ${analysisJson.covered_lines || 0}
-- **Uncovered Lines:** ${analysisJson.uncovered_lines || 0}
-
-<details>
-<summary>📊 Detailed Report</summary>
-
-\`\`\`
-${analysisText}
-\`\`\`
-
-</details>
-
----
-*This comment is automatically updated on each push to the PR.*`;
+            const body = '## ' + emoji + ' Difftron Coverage Analysis\n\n' +
+              '**Coverage:** ' + coverage.toFixed(1) + '% (threshold: ' + threshold + '%)\n' +
+              '**Status:** ' + status + '\n\n' +
+              '### Summary\n' +
+              '- **Total Changed Lines:** ' + (analysisJson.total_changed_lines || 0) + '\n' +
+              '- **Covered Lines:** ' + (analysisJson.covered_lines || 0) + '\n' +
+              '- **Uncovered Lines:** ' + (analysisJson.uncovered_lines || 0) + '\n\n' +
+              '<details>\n' +
+              '<summary>📊 Detailed Report</summary>\n\n' +
+              '```\n' +
+              analysisText + '\n' +
+              '```\n\n' +
+              '</details>\n\n' +
+              '---\n' +
+              '*This comment is automatically updated on each push to the PR.*';
             
             if (botComment) {
               // Update existing comment
