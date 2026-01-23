@@ -114,6 +114,7 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 * **Risk Heatmaps**: Uses Git Churn data to identify "Hot Spot" files. Low coverage in a high-churn file triggers a **CRITICAL** alert.
 * **AI Test Generation**: Don't just report the gap—fix it. Difftron generates `_test.go` or `.test.ts` snippets for missing paths.
 * **CI/CD Native**: Designed to run as a GitHub Action or GitLab CI Job, posting rich Markdown reports directly to your PR/MR.
+* **Dogfooding Ready**: Use difftron on itself! Built-in support for analyzing your own code changes.
 
 ---
 
@@ -165,6 +166,9 @@ go run scripts/task.go test-coverage
 # Run integration tests with fixtures
 go run scripts/task.go test-integration
 
+# Dogfood: Analyze your own changes
+go run scripts/task.go dogfood
+
 # Install the binary
 go run scripts/task.go install
 
@@ -181,18 +185,38 @@ go run scripts/task.go run analyze --coverage coverage.info
 ### Testing
 
 ```bash
-# Run all tests
+# Run all unit tests
+go run scripts/task.go test
+
+# Run integration test with fixtures
+go run scripts/task.go test-integration
+
+# Run tests with coverage report
+go run scripts/task.go test-coverage
+
+# Or use go test directly
 go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Run tests with verbose output
 go test -v ./...
-
-# Run specific package tests
 go test ./internal/hunk/...
 ```
+
+See [TESTING.md](TESTING.md) for comprehensive testing guide.
+
+---
+
+## Dogfooding
+
+Difftron can analyze itself! Use it to ensure your own code changes meet coverage standards.
+
+```bash
+# Analyze your last commit
+go run scripts/task.go dogfood
+
+# Analyze specific commit range
+go run scripts/task.go dogfood HEAD~5 HEAD
+```
+
+See [DOGFOOD.md](DOGFOOD.md) for detailed dogfooding guide and CI/CD integration.
 
 ---
 
@@ -331,6 +355,7 @@ difftron/
 │   │   └── parser_test.go
 │   ├── coverage/
 │   │   ├── lcov.go              # LCOV parser
+│   │   ├── gocov.go             # Go coverage parser
 │   │   ├── cobertura.go         # Cobertura parser (v0.2)
 │   │   └── coverage_test.go
 │   ├── analyzer/
@@ -350,16 +375,20 @@ difftron/
 │       ├── formatter.go         # Report formatting
 │       └── markdown.go          # Markdown generation
 ├── scripts/
-│   └── task.go                  # Go-based task runner
+│   ├── task.go                  # Go-based task runner
+│   ├── dogfood.sh               # Dogfooding script
+│   └── generate-coverage.sh     # Coverage generation helper
 ├── testdata/
 │   └── fixtures/                # Test fixtures
 ├── .github/
 │   └── workflows/
-│       └── difftron-action.yml  # GitHub Action (v0.3)
+│       └── difftron.yml         # GitHub Action (v0.3)
 ├── .gitlab-ci.yml               # GitLab CI template (v0.3)
 ├── go.mod
 ├── go.sum
 ├── README.md
+├── TESTING.md                   # Testing guide
+├── DOGFOOD.md                   # Dogfooding guide
 └── LICENSE
 ```
 
@@ -402,11 +431,13 @@ difftron analyze --coverage coverage.info --output json > report.json
 ### Implemented Features:
 - Git diff parsing (Hunk Engine)
 - LCOV coverage file parsing (Coverage Engine)
+- Go coverage format support (for dogfooding)
 - Core analysis engine (intersects diffs with coverage)
 - CLI interface with `analyze` command
 - Text and JSON output formats
 - Coverage threshold checking
 - Comprehensive test coverage
+- Dogfooding support (analyze your own code)
 
 ### Usage Example:
 
@@ -429,6 +460,9 @@ difftron analyze --coverage coverage.info --diff diff.patch
 
 # Test with included fixtures
 difftron analyze --coverage testdata/fixtures/tronswan-coverage.info --diff testdata/fixtures/sample.diff
+
+# Dogfood: Analyze your own changes
+go run scripts/task.go dogfood
 ```
 
 ### Next Steps:

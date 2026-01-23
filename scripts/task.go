@@ -63,6 +63,53 @@ func main() {
 			"--coverage", coverageFile,
 			"--diff", diffFile,
 			"--threshold", "0")
+	case "dogfood":
+		// Run difftron on itself
+		baseRef := "HEAD~1"
+		headRef := "HEAD"
+		if len(args) > 0 {
+			baseRef = args[0]
+		}
+		if len(args) > 1 {
+			headRef = args[1]
+		}
+		fmt.Printf("Dogfooding: analyzing %s..%s\n", baseRef, headRef)
+		
+		// Build first
+		run("go", "build", "-o", "bin/difftron", "./cmd/difftron")
+		
+		// Generate coverage
+		run("go", "test", "-coverprofile=coverage.out", "./...")
+		
+		// Generate diff
+		cmd := exec.Command("git", "diff", baseRef+".."+headRef)
+		diffFile, err := os.CreateTemp("", "difftron-diff-*.patch")
+		if err != nil {
+			fmt.Printf("Error creating temp file: %v\n", err)
+			os.Exit(1)
+		}
+		defer os.Remove(diffFile.Name())
+		
+		cmd.Stdout = diffFile
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Warning: git diff failed (no changes?): %v\n", err)
+			fmt.Println("No changes to analyze.")
+			return
+		}
+		diffFile.Close()
+		
+		// Check if diff is empty
+		info, _ := os.Stat(diffFile.Name())
+		if info.Size() == 0 {
+			fmt.Println("No changes to analyze.")
+			return
+		}
+		
+		// Run analysis
+		run("go", "run", "./cmd/difftron", "analyze",
+			"--coverage", "coverage.out",
+			"--diff", diffFile.Name(),
+			"--threshold", "80")
 	default:
 		fmt.Printf("Unknown task: %s\n\n", task)
 		printUsage()
@@ -98,6 +145,7 @@ func printUsage() {
 	fmt.Println("  test            - Run all tests")
 	fmt.Println("  test-coverage   - Run tests with coverage report")
 	fmt.Println("  test-integration - Run integration test with fixtures")
+	fmt.Println("  dogfood [base] [head] - Run difftron on itself (default: HEAD~1..HEAD)")
 	fmt.Println("  install         - Install the binary to $GOPATH/bin")
 	fmt.Println("  fmt             - Format code")
 	fmt.Println("  lint            - Run linter (requires golangci-lint)")
