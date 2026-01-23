@@ -167,8 +167,8 @@ jobs:
             );
             
             const body = `## ${emoji} Difftron Coverage Analysis
-            
-**Coverage:** ${coverage.toFixed(1)}% (threshold: ${threshold}%)  
+
+**Coverage:** ${coverage.toFixed(1)}% (threshold: ${threshold}%)
 **Status:** ${status}
 
 ### Summary
@@ -186,8 +186,7 @@ ${analysisText}
 </details>
 
 ---
-*This comment is automatically updated on each push to the PR.*
-`;
+*This comment is automatically updated on each push to the PR.*`;
             
             if (botComment) {
               // Update existing comment
