@@ -1,9 +1,3 @@
-This is a great choice. **Difftron** sounds like a high-performance utility—clean, technical, and fits perfectly into your "Tron" ecosystem.
-
-Below is the rewritten project documentation. I have updated the branding, refined the architectural goals, and included the specialized Go logic for both the LCOV parsing and the Hunk mapping.
-
----
-
 # Difftron
 
 **Difftron** is a language-agnostic, AI-powered "Quality Gate" CLI. It ensures that new code changes are adequately tested by correlating `git diff` hunks with standard coverage reports (LCOV, Cobertura, etc.).
