@@ -212,6 +212,39 @@ go run scripts/task.go dogfood HEAD~5 HEAD
 
 See [DOGFOOD.md](DOGFOOD.md) for detailed dogfooding guide and CI/CD integration.
 
+## CI/CD Integration
+
+### GitHub Actions
+
+The included `.github/workflows/difftron.yml` workflow provides:
+
+- **Automatic PR comments** with coverage analysis
+- **Gating**: Blocks merges if coverage threshold not met
+- **Configurable threshold**: Set via workflow input or PR labels
+
+#### Configuration
+
+**Default threshold**: 80% (configurable in workflow file)
+
+**Per-PR threshold**: Add label `coverage-threshold:90` to set 90% threshold
+
+**Manual trigger**: Set threshold when manually running the workflow
+
+See [.github/workflows/README.md](.github/workflows/README.md) for detailed configuration options.
+
+### Usage in CI
+
+```bash
+# Basic usage (auto-detects CI environment)
+difftron ci coverage.out
+
+# Explicit refs
+difftron ci --base HEAD~1 --head HEAD coverage.out
+
+# Custom threshold
+difftron ci --threshold 90 coverage.out
+```
+
 ---
 
 ## Implementation Plan

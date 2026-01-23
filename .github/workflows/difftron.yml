@@ -6,6 +6,13 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Coverage threshold percentage'
+        required: false
+        default: '80'
+        type: string
 
 jobs:
   analyze:
@@ -50,6 +57,29 @@ jobs:
       - name: Build difftron
         run: go build -o bin/difftron ./cmd/difftron
 
+      - name: Set threshold
+        id: threshold
+        run: |
+          # Get threshold from workflow input, PR label, or default to 80
+          THRESHOLD="${{ github.event.inputs.threshold }}"
+          if [ -z "$THRESHOLD" ]; then
+            THRESHOLD="80"
+          fi
+          
+          # For PRs, check for threshold in labels (e.g., "coverage-threshold:90")
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            LABELS="${{ toJson(github.event.pull_request.labels.*.name) }}"
+            if echo "$LABELS" | grep -q "coverage-threshold:"; then
+              LABEL_THRESHOLD=$(echo "$LABELS" | grep -o "coverage-threshold:[0-9]*" | cut -d: -f2 | head -1)
+              if [ -n "$LABEL_THRESHOLD" ]; then
+                THRESHOLD="$LABEL_THRESHOLD"
+              fi
+            fi
+          fi
+          
+          echo "threshold=$THRESHOLD" >> $GITHUB_OUTPUT
+          echo "Using coverage threshold: $THRESHOLD%"
+
       - name: Run difftron CI analysis
         id: difftron
         continue-on-error: true
@@ -59,16 +89,33 @@ jobs:
             exit 1
           fi
           
+          THRESHOLD="${{ steps.threshold.outputs.threshold }}"
+          
+          # Run analysis - this will exit 1 if threshold not met, but we continue
           ./bin/difftron ci \
-            --threshold 80 \
+            --threshold "$THRESHOLD" \
             --output-file analysis.json \
             coverage.out 2>&1 || {
-            echo "Difftron analysis completed with exit code $?"
-            # Create fallback JSON if analysis fails
+            EXIT_CODE=$?
+            echo "Difftron analysis completed with exit code $EXIT_CODE"
+            # Create fallback JSON if analysis fails completely
             if [ ! -f analysis.json ]; then
-              echo '{"coverage_percentage": 0, "threshold": 80, "meets_threshold": false, "total_changed_lines": 0, "covered_lines": 0, "uncovered_lines": 0, "files": {}}' > analysis.json
+              echo "{\"coverage_percentage\": 0, \"threshold\": $THRESHOLD, \"meets_threshold\": false, \"total_changed_lines\": 0, \"covered_lines\": 0, \"uncovered_lines\": 0, \"files\": {}}" > analysis.json
             fi
+            # Store exit code for later step
+            echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           }
+          
+          # Extract whether threshold was met from JSON (more reliable than exit code)
+          if [ -f analysis.json ]; then
+            MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
+            COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
+            echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "meets_threshold=false" >> $GITHUB_OUTPUT
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -194,11 +241,53 @@ jobs:
               }
             });
 
-      - name: Fail if threshold not met
-        if: github.event_name == 'push' && steps.difftron.outcome == 'failure'
+      - name: Gate: Fail if threshold not met (PRs only)
+        if: always() && github.event_name == 'pull_request' && steps.difftron.outcome != 'skipped'
         run: |
-          echo "Coverage threshold not met"
-          exit 1
+          # Read from JSON file (most reliable)
+          if [ -f analysis.json ]; then
+            MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
+            COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
+            THRESHOLD=$(jq -r '.threshold // 80' analysis.json 2>/dev/null || echo "80")
+          else
+            # Fallback to step outputs
+            MEETS_THRESHOLD="${{ steps.difftron.outputs.meets_threshold }}"
+            COVERAGE="${{ steps.difftron.outputs.coverage }}"
+            THRESHOLD="${{ steps.threshold.outputs.threshold }}"
+          fi
+          
+          echo "Coverage: ${COVERAGE}% | Threshold: ${THRESHOLD}% | Meets Threshold: ${MEETS_THRESHOLD}"
+          
+          if [ "$MEETS_THRESHOLD" != "true" ]; then
+            echo "❌ Coverage threshold not met!"
+            echo "Coverage: ${COVERAGE}% is below threshold: ${THRESHOLD}%"
+            echo "PR is gated - coverage must meet the threshold to merge."
+            exit 1
+          else
+            echo "✅ Coverage threshold met - PR gate passed!"
+            echo "Coverage: ${COVERAGE}% meets threshold: ${THRESHOLD}%"
+          fi
+
+      - name: Report coverage status (direct pushes)
+        if: always() && github.event_name == 'push' && steps.difftron.outcome != 'skipped'
+        run: |
+          # For direct pushes, just report - don't gate
+          if [ -f analysis.json ]; then
+            MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
+            COVERAGE=$(jq -r '.coverage_percentage // 0' analysis.json 2>/dev/null || echo "0")
+            THRESHOLD=$(jq -r '.threshold // 80' analysis.json 2>/dev/null || echo "80")
+            
+            echo "Coverage: ${COVERAGE}% | Threshold: ${THRESHOLD}%"
+            
+            if [ "$MEETS_THRESHOLD" != "true" ]; then
+              echo "⚠️  Coverage below threshold (${COVERAGE}% < ${THRESHOLD}%)"
+              echo "Note: Direct pushes to main are not gated, but consider improving coverage."
+            else
+              echo "✅ Coverage meets threshold!"
+            fi
+          else
+            echo "⚠️  Could not read analysis results"
+          fi
 
       - name: Upload coverage artifact
         if: always()
