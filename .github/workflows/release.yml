@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: false
+
+      - name: Build Linux AMD64
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o difftron-linux-amd64 ./cmd/difftron
+      - name: Build Linux ARM64
+        run: |
+          GOOS=linux GOARCH=arm64 go build -o difftron-linux-arm64 ./cmd/difftron
+      - name: Build macOS AMD64
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o difftron-darwin-amd64 ./cmd/difftron
+      - name: Build macOS ARM64
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -o difftron-darwin-arm64 ./cmd/difftron
+      - name: Build Windows AMD64
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o difftron-windows-amd64.exe ./cmd/difftron
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            difftron-linux-amd64
+            difftron-linux-arm64
+            difftron-darwin-amd64
+            difftron-darwin-arm64
+            difftron-windows-amd64.exe
+          generate_release_notes: true

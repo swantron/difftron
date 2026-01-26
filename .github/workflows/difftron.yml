@@ -34,20 +34,14 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Verify vendor directory exists
-        run: |
-          if [ ! -d "vendor" ]; then
-            echo "ERROR: vendor directory not found. Run 'go mod vendor' and commit the vendor directory."
-            exit 1
-          fi
-          echo "✓ Vendor directory found"
-          ls -la vendor | head -10
+      - name: Install dependencies
+        run: go mod download
 
       - name: Run tests with coverage
         continue-on-error: true
         run: |
-          # Run tests with vendored dependencies
-          go test -mod=vendor -coverprofile=coverage.out ./... 2>&1 | grep -v "go: no such tool" || true
+          # Run tests and capture coverage, ignoring tool errors
+          go test -coverprofile=coverage.out ./... 2>&1 | grep -v "go: no such tool" || true
           
           # Ensure coverage.out exists
           if [ ! -f coverage.out ] || [ ! -s coverage.out ]; then
@@ -61,7 +55,7 @@ jobs:
           fi
 
       - name: Build difftron
-        run: go build -mod=vendor -o bin/difftron ./cmd/difftron
+        run: go build -o bin/difftron ./cmd/difftron
 
       - name: Set threshold
         id: threshold
