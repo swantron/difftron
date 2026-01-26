@@ -267,10 +267,17 @@ func getGitDiffForCI(base, head string) (string, error) {
 		}
 	}
 
-	cmd := exec.Command("git", "diff", base+".."+head)
+	// Use three dots (...) for merge-base diff (better for PRs)
+	// Falls back to two dots (..) if merge-base fails
+	cmd := exec.Command("git", "diff", base+"..."+head)
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git diff failed: %w", err)
+		// Fallback to two-dot diff if three-dot fails
+		cmd = exec.Command("git", "diff", base+".."+head)
+		output, err = cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("git diff failed: %w", err)
+		}
 	}
 	return string(output), nil
 }
