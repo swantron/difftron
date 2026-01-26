@@ -161,6 +161,8 @@ func TestParseResult_HasChanges(t *testing.T) {
 		ChangedLines: make(map[string]map[int]bool),
 		AddedLines:   make(map[string]map[int]bool),
 		RemovedLines: make(map[string]map[int]bool),
+		NewFiles:     make(map[string]bool),
+		ModifiedFiles: make(map[string]bool),
 	}
 
 	if result.HasChanges() {
@@ -170,5 +172,97 @@ func TestParseResult_HasChanges(t *testing.T) {
 	result.ChangedLines["file.go"] = map[int]bool{1: true}
 	if !result.HasChanges() {
 		t.Error("expected changes to be detected")
+	}
+}
+
+func TestParseGitDiff_NewFile(t *testing.T) {
+	diffOutput := `diff --git a/newfile.go b/newfile.go
+new file mode 100644
+index 0000000..abcdefg
+--- /dev/null
++++ b/newfile.go
+@@ -0,0 +1,3 @@
++package main
++
++func main() {}
+`
+
+	result, err := ParseGitDiff(diffOutput)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !result.IsNewFile("newfile.go") {
+		t.Error("expected newfile.go to be detected as new file")
+	}
+
+	if result.IsModifiedFile("newfile.go") {
+		t.Error("expected newfile.go not to be detected as modified file")
+	}
+}
+
+func TestParseGitDiff_ModifiedFile(t *testing.T) {
+	diffOutput := `diff --git a/file.go b/file.go
+index 1234567..abcdefg 100644
+--- a/file.go
++++ b/file.go
+@@ -5,3 +5,5 @@ func main() {
+ 	fmt.Println("hello")
++	fmt.Println("new line")
++	fmt.Println("another line")
+ 	fmt.Println("world")
+`
+
+	result, err := ParseGitDiff(diffOutput)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.IsNewFile("file.go") {
+		t.Error("expected file.go not to be detected as new file")
+	}
+
+	if !result.IsModifiedFile("file.go") {
+		t.Error("expected file.go to be detected as modified file")
+	}
+}
+
+func TestParseGitDiff_MixedFiles(t *testing.T) {
+	diffOutput := `diff --git a/newfile.go b/newfile.go
+new file mode 100644
+index 0000000..abcdefg
+--- /dev/null
++++ b/newfile.go
+@@ -0,0 +1,2 @@
++package main
++func new() {}
+
+diff --git a/existing.go b/existing.go
+index 1111111..2222222 100644
+--- a/existing.go
++++ b/existing.go
+@@ -5,1 +5,2 @@
++	new line
+`
+
+	result, err := ParseGitDiff(diffOutput)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !result.IsNewFile("newfile.go") {
+		t.Error("expected newfile.go to be detected as new file")
+	}
+
+	if result.IsModifiedFile("newfile.go") {
+		t.Error("expected newfile.go not to be detected as modified file")
+	}
+
+	if result.IsNewFile("existing.go") {
+		t.Error("expected existing.go not to be detected as new file")
+	}
+
+	if !result.IsModifiedFile("existing.go") {
+		t.Error("expected existing.go to be detected as modified file")
 	}
 }

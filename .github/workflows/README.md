@@ -99,6 +99,11 @@ Edit `.github/workflows/difftron.yml` to customize:
 
 ### Troubleshooting
 
+**"Failed to restore" tar warning?**
+- This is a harmless warning that occurs when GitHub Actions tries to restore artifacts from previous runs
+- It's safe to ignore - the workflow will continue normally
+- The warning appears because there are no artifacts to restore on the first run or if previous artifacts were cleaned up
+
 **PR not gating when it should?**
 - Verify you're testing a PR (not a direct push)
 - Check that the "Gate: Fail if threshold not met (PRs only)" step is running

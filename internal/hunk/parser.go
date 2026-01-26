@@ -23,23 +23,37 @@ type ParseResult struct {
 	AddedLines map[string]map[int]bool
 	// RemovedLines maps file path -> line number -> true if removed
 	RemovedLines map[string]map[int]bool
+	// NewFiles tracks which files are new (didn't exist in base)
+	NewFiles map[string]bool
+	// ModifiedFiles tracks which files existed in base and were modified
+	ModifiedFiles map[string]bool
 }
 
 // ParseGitDiff parses git diff output and returns a map of changed lines
 // The output format is: map[filepath]map[lineNumber]bool
 func ParseGitDiff(diffOutput string) (*ParseResult, error) {
 	result := &ParseResult{
-		ChangedLines: make(map[string]map[int]bool),
-		AddedLines:   make(map[string]map[int]bool),
-		RemovedLines: make(map[string]map[int]bool),
+		ChangedLines:  make(map[string]map[int]bool),
+		AddedLines:    make(map[string]map[int]bool),
+		RemovedLines:  make(map[string]map[int]bool),
+		NewFiles:      make(map[string]bool),
+		ModifiedFiles: make(map[string]bool),
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(diffOutput))
 	var currentFile string
-	var currentLine int // Line number in the new file version
+	var currentFileOldPath string // Track the old path to detect new files
+	var currentLine int           // Line number in the new file version
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		// Track the old file path
+		// Format: --- a/path/to/file.go
+		if strings.HasPrefix(line, "--- a/") {
+			currentFileOldPath = strings.TrimPrefix(line, "--- a/")
+			continue
+		}
 
 		// Track the file being modified
 		// Format: +++ b/path/to/file.go
@@ -48,16 +62,23 @@ func ParseGitDiff(diffOutput string) (*ParseResult, error) {
 			if currentFile == "/dev/null" {
 				// File was deleted, skip
 				currentFile = ""
+				currentFileOldPath = ""
 				continue
 			}
+			
 			result.ChangedLines[currentFile] = make(map[int]bool)
 			result.AddedLines[currentFile] = make(map[int]bool)
 			result.RemovedLines[currentFile] = make(map[int]bool)
-			continue
-		}
-
-		// Skip deleted files (--- a/path/to/file.go with +++ b/dev/null)
-		if strings.HasPrefix(line, "--- a/") {
+			
+			// Detect if this is a new file
+			// New files have old path as /dev/null or empty
+			if currentFileOldPath == "/dev/null" || currentFileOldPath == "" {
+				result.NewFiles[currentFile] = true
+			} else {
+				result.ModifiedFiles[currentFile] = true
+			}
+			
+			currentFileOldPath = "" // Reset for next file
 			continue
 		}
 
@@ -138,6 +159,16 @@ func (r *ParseResult) GetChangedLinesForFile(file string) map[int]bool {
 // GetAddedLinesForFile returns the set of added line numbers for a file
 func (r *ParseResult) GetAddedLinesForFile(file string) map[int]bool {
 	return r.AddedLines[file]
+}
+
+// IsNewFile returns true if the file is new (didn't exist in base)
+func (r *ParseResult) IsNewFile(file string) bool {
+	return r.NewFiles[file]
+}
+
+// IsModifiedFile returns true if the file existed in base and was modified
+func (r *ParseResult) IsModifiedFile(file string) bool {
+	return r.ModifiedFiles[file]
 }
 
 // HasChanges returns true if there are any changes

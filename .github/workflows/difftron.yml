@@ -34,6 +34,16 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Install dependencies
         run: go mod download
 
@@ -291,6 +301,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ github.run_number }}
@@ -298,3 +309,4 @@ jobs:
             coverage.out
             analysis.json
           retention-days: 7
+          if-no-files-found: ignore

@@ -1,8 +1,28 @@
 # Difftron
 
-**Difftron** is a language-agnostic, AI-powered "Quality Gate" CLI. It ensures that new code changes are adequately tested by correlating `git diff` hunks with standard coverage reports (LCOV, Cobertura, etc.).
+**Difftron** is a language-agnostic, AI-powered "Quality Gate" CLI that provides comprehensive testing health analysis. It ensures that new code changes are adequately tested by correlating `git diff` hunks with standard coverage reports (LCOV, Cobertura, Go coverage, etc.).
 
-Unlike traditional coverage tools that report on the entire project, **Difftron** zooms in on the **deltas**, ensuring that every new line of code is held to a high standard of quality before it hits production.
+Unlike traditional coverage tools that report on the entire project, **Difftron** zooms in on the **deltas**, ensuring that every new line of code is held to a high standard of quality before it hits production. It also provides a **holistic view** of testing health by aggregating coverage across multiple test types (unit, API, functional) and tracking baseline coverage to prevent false positives.
+
+## What Difftron Does
+
+Difftron analyzes code changes and provides comprehensive testing health insights:
+
+1. **Delta Coverage Analysis**: Analyzes only the code that changed, not the entire codebase
+2. **Baseline Tracking**: Compares current coverage against baseline to detect regressions
+3. **Multi-Test-Type Aggregation**: Combines coverage from unit, API, and functional tests
+4. **New vs Modified File Detection**: Separately tracks coverage for new files vs modified files
+5. **Holistic Health Reporting**: Provides actionable insights and recommendations
+6. **Regression Prevention**: Flags when coverage drops below baseline
+7. **Test Gap Detection**: Identifies when code is only covered by one test type
+
+### Key Capabilities
+
+- **Accurate Assessment**: Only evaluates changed code with baseline context, preventing false positives from untested legacy code
+- **Comprehensive Coverage**: Aggregates coverage across all test types (unit, API, functional, integration, E2E)
+- **Actionable Insights**: Generates clear recommendations with priorities (critical, high, medium, low)
+- **AI-Friendly Output**: Provides structured JSON, Markdown, and text formats for both humans and AI agents
+- **CI/CD Integration**: Ready-to-use templates for GitHub Actions and GitLab CI
 
 ## The Problem
 
@@ -18,10 +38,12 @@ Difftron parses the `git diff` to identify the specific line numbers modified in
 
 | Component | Responsibility |
 | --- | --- |
-| **Hunk Engine** | Parses `git diff` output to map "hunks" to absolute line numbers in the new file version. |
-| **Coverage Engine** | Ingests LCOV/Cobertura files to build an in-memory map of `File -> Line -> HitCount`. |
-| **Risk Engine** | Cross-references coverage with **Git Churn** (frequency of file changes) to flag high-risk gaps. |
-| **Gemini Integration** | Provides "Agentic" test generation by sending uncovered hunks to the AI for boilerplate creation. |
+| **Hunk Engine** | Parses `git diff` output to map "hunks" to absolute line numbers. Detects new vs modified files. |
+| **Coverage Engine** | Ingests LCOV/Go coverage files to build an in-memory map of `File -> Line -> HitCount`. Supports multiple formats. |
+| **Health Analyzer** | Aggregates coverage across test types, tracks baseline coverage, and generates holistic health reports. |
+| **Analyzer** | Intersects diff hunks with coverage data, calculates coverage percentages, and identifies gaps. |
+| **Risk Engine** | Cross-references coverage with **Git Churn** (frequency of file changes) to flag high-risk gaps. (Planned) |
+| **Gemini Integration** | Provides "Agentic" test generation by sending uncovered hunks to the AI for boilerplate creation. (Planned) |
 
 ---
 
@@ -232,6 +254,34 @@ The included `.github/workflows/difftron.yml` workflow provides:
 
 See [.github/workflows/README.md](.github/workflows/README.md) for detailed configuration options.
 
+### GitLab CI
+
+Difftron integrates seamlessly with GitLab CI/CD pipelines. See [GITLAB_CI.md](GITLAB_CI.md) for:
+
+- Complete GitLab CI configuration examples
+- Security-friendly artifact distribution options
+- Merge request comment integration
+- Artifact caching strategies
+
+#### Quick GitLab CI Example
+
+```yaml
+difftron-analysis:
+  stage: test
+  image: golang:1.21
+  script:
+    - go test -coverprofile=coverage.out ./...
+    - ./bin/difftron ci --threshold 80 coverage.out
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.out
+  only:
+    - merge_requests
+    - main
+```
+
 ### Usage in CI
 
 ```bash
@@ -243,6 +293,14 @@ difftron ci --base HEAD~1 --head HEAD coverage.out
 
 # Custom threshold
 difftron ci --threshold 90 coverage.out
+
+# Holistic health analysis with multiple test types
+difftron health \
+  --unit-coverage unit-coverage.out \
+  --api-coverage api-coverage.info \
+  --functional-coverage functional-coverage.info \
+  --threshold 80 \
+  --output json > health-report.json
 ```
 
 ---
@@ -451,20 +509,30 @@ difftron analyze --coverage coverage.info --output json > report.json
 
 ---
 
-## Current Status (v0.1)
+## Current Status (v0.1+)
 
 **Phase 1 is complete!** The core CLI functionality is implemented and tested:
 
 ### Implemented Features:
-- Git diff parsing (Hunk Engine)
+- Git diff parsing (Hunk Engine) with new/modified file detection
 - LCOV coverage file parsing (Coverage Engine)
 - Go coverage format support (for dogfooding)
 - Core analysis engine (intersects diffs with coverage)
-- CLI interface with `analyze` command
-- Text and JSON output formats
+- Baseline coverage tracking to prevent false positives
+- Holistic health analysis with multi-test-type aggregation
+- CLI interface with `analyze` and `ci` commands
+- Text, JSON, and Markdown output formats
 - Coverage threshold checking
-- Comprehensive test coverage
+- Comprehensive test coverage (91%+)
 - Dogfooding support (analyze your own code)
+- GitLab CI integration with security-friendly artifact distribution
+
+### New in Recent Updates:
+- **Baseline Coverage Tracking**: Compares current coverage against baseline to detect regressions
+- **New vs Modified File Detection**: Separately tracks coverage for new files vs modified files
+- **Holistic Health Reporting**: Aggregates coverage across unit, API, and functional tests
+- **Actionable Insights**: Generates prioritized recommendations
+- **Security-Friendly Distribution**: Multiple options for enterprise environments (vendor binary, build from source, internal registry)
 
 ### Usage Example:
 
@@ -492,10 +560,21 @@ difftron analyze --coverage testdata/fixtures/tronswan-coverage.info --diff test
 go run scripts/task.go dogfood
 ```
 
+### Documentation
+
+- **[README.md](README.md)**: This file - overview and quick start
+- **[GITLAB_CI.md](GITLAB_CI.md)**: Complete GitLab CI integration guide with security-friendly artifact distribution
+- **[ARTIFACT_DISTRIBUTION.md](ARTIFACT_DISTRIBUTION.md)**: Quick reference for artifact distribution options
+- **[HOLISTIC_HEALTH.md](HOLISTIC_HEALTH.md)**: Holistic testing health analysis documentation
+- **[BASELINE_COVERAGE.md](BASELINE_COVERAGE.md)**: Baseline coverage tracking explanation
+- **[SECURITY.md](SECURITY.md)**: Security policy and best practices for enterprise use
+- **[TESTING.md](TESTING.md)**: Testing guide and examples
+- **[DOGFOOD.md](DOGFOOD.md)**: Using Difftron on itself
+
 ### Next Steps:
 - Implement Risk Engine (git churn analysis) for v0.2
 - Add Cobertura XML parser support
-- Create CI/CD integration templates
 - Add Gemini AI integration for test generation
+- Enhanced GitLab MR comment integration
 
 ---
