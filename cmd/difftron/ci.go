@@ -94,26 +94,47 @@ func runCI(cmd *cobra.Command, args []string) error {
 	}
 
 	var coverageReport *coverage.Report
-	if format == "go" {
+	switch format {
+	case "go":
 		coverageReport, err = coverage.ParseGoCoverage(coverageFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Go coverage (%v), trying LCOV format\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Go coverage (%v), trying other formats\n", err)
+			// Try Cobertura as fallback
+			coverageReport, err = coverage.ParseCobertura(coverageFile)
+			if err != nil {
+				// Try LCOV as last fallback
+				coverageReport, err = coverage.ParseLCOV(coverageFile)
+				if err != nil {
+					return fmt.Errorf("failed to parse coverage file (tried Go, Cobertura, and LCOV): %w", err)
+				}
+			}
+		}
+	case "cobertura":
+		coverageReport, err = coverage.ParseCobertura(coverageFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as Cobertura (%v), trying LCOV format\n", err)
 			// Fallback to LCOV
 			coverageReport, err = coverage.ParseLCOV(coverageFile)
 			if err != nil {
-				return fmt.Errorf("failed to parse coverage file (tried both Go and LCOV): %w", err)
+				return fmt.Errorf("failed to parse coverage file (tried Cobertura and LCOV): %w", err)
 			}
 		}
-	} else {
+	case "lcov":
 		coverageReport, err = coverage.ParseLCOV(coverageFile)
 		if err != nil {
-			// Try Go format as fallback
-			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as LCOV (%v), trying Go format\n", err)
-			coverageReport, err = coverage.ParseGoCoverage(coverageFile)
+			// Try Cobertura as fallback
+			fmt.Fprintf(os.Stderr, "Warning: Failed to parse as LCOV (%v), trying Cobertura format\n", err)
+			coverageReport, err = coverage.ParseCobertura(coverageFile)
 			if err != nil {
-				return fmt.Errorf("failed to parse coverage file (tried both LCOV and Go): %w", err)
+				// Try Go format as last fallback
+				coverageReport, err = coverage.ParseGoCoverage(coverageFile)
+				if err != nil {
+					return fmt.Errorf("failed to parse coverage file (tried LCOV, Cobertura, and Go): %w", err)
+				}
 			}
 		}
+	default:
+		return fmt.Errorf("unsupported coverage format: %s", format)
 	}
 
 	// Analyze

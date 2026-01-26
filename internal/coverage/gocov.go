@@ -178,8 +178,20 @@ func DetectCoverageFormat(filePath string) (string, error) {
 		content = content[:1000] // Only check first 1KB
 	}
 	
-	// Check for LCOV format markers (must be first)
 	trimmed := strings.TrimSpace(content)
+	
+	// Check for Cobertura XML format
+	if strings.HasPrefix(trimmed, "<?xml") || strings.Contains(content, "<coverage") {
+		// Check if it's Cobertura format
+		if strings.Contains(content, "cobertura") || strings.Contains(content, "coverage") {
+			// Verify it has Cobertura-specific elements
+			if strings.Contains(content, "<package") || strings.Contains(content, "<class") {
+				return "cobertura", nil
+			}
+		}
+	}
+	
+	// Check for LCOV format markers (must be first)
 	if strings.HasPrefix(trimmed, "TN:") || 
 	   strings.HasPrefix(trimmed, "SF:") ||
 	   (strings.Contains(content, "SF:") && strings.Contains(content, "DA:")) {

@@ -126,7 +126,8 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 ## Key Features
 
-* **Universal Language Support**: If your language exports LCOV or Cobertura (Go, TS, Java, Python, C++, etc.), Difftron can analyze it.
+* **Universal Language Support**: Supports LCOV, Cobertura XML, and Go coverage formats (Go, TS, Java, Python, C++, etc.)
+* **Automatic Format Detection**: Automatically detects coverage format - no need to specify
 * **Risk Heatmaps**: Uses Git Churn data to identify "Hot Spot" files. Low coverage in a high-churn file triggers a **CRITICAL** alert.
 * **AI Test Generation**: Don't just report the gap—fix it. Difftron generates `_test.go` or `.test.ts` snippets for missing paths.
 * **CI/CD Native**: Designed to run as a GitHub Action or GitLab CI Job, posting rich Markdown reports directly to your PR/MR.
@@ -441,7 +442,8 @@ difftron/
 │   ├── coverage/
 │   │   ├── lcov.go              # LCOV parser
 │   │   ├── gocov.go             # Go coverage parser
-│   │   ├── cobertura.go         # Cobertura parser (v0.2)
+│   │   ├── cobertura.go         # Cobertura XML parser
+│   │   ├── cobertura_test.go    # Cobertura tests
 │   │   └── coverage_test.go
 │   ├── analyzer/
 │   │   ├── analyzer.go          # Core analysis logic
@@ -485,17 +487,19 @@ difftron/
 # Install
 go install github.com/swantron/difftron/cmd/difftron@latest
 
-# Analyze current diff against coverage
-difftron analyze --coverage coverage.info
+# Analyze current diff against coverage (auto-detects format)
+difftron analyze --coverage coverage.info    # LCOV format
+difftron analyze --coverage coverage.xml      # Cobertura XML format
+difftron analyze --coverage coverage.out      # Go coverage format
 
 # Analyze specific diff
 git diff main...feature-branch | difftron analyze --coverage coverage.info
 
 # Set coverage threshold
-difftron analyze --coverage coverage.info --threshold 80
+difftron analyze --coverage coverage.xml --threshold 80
 
 # Generate JSON report
-difftron analyze --coverage coverage.info --output json > report.json
+difftron analyze --coverage coverage.xml --output json > report.json
 ```
 
 ---
@@ -515,8 +519,7 @@ difftron analyze --coverage coverage.info --output json > report.json
 
 ### Implemented Features:
 - Git diff parsing (Hunk Engine) with new/modified file detection
-- LCOV coverage file parsing (Coverage Engine)
-- Go coverage format support (for dogfooding)
+- **Multiple coverage formats**: LCOV, Cobertura XML, and Go coverage format support
 - Core analysis engine (intersects diffs with coverage)
 - Baseline coverage tracking to prevent false positives
 - Holistic health analysis with multi-test-type aggregation
@@ -556,6 +559,10 @@ difftron analyze --coverage coverage.info --diff diff.patch
 # Test with included fixtures
 difftron analyze --coverage testdata/fixtures/tronswan-coverage.info --diff testdata/fixtures/sample.diff
 
+# Analyze Cobertura XML format (Python, Java, JavaScript, etc.)
+pytest --cov=src --cov-report=xml:cobertura.xml
+difftron analyze --coverage cobertura.xml --threshold 80
+
 # Dogfood: Analyze your own changes
 go run scripts/task.go dogfood
 ```
@@ -565,6 +572,7 @@ go run scripts/task.go dogfood
 - **[README.md](README.md)**: This file - overview and quick start
 - **[GITLAB_CI.md](GITLAB_CI.md)**: Complete GitLab CI integration guide with security-friendly artifact distribution
 - **[ARTIFACT_DISTRIBUTION.md](ARTIFACT_DISTRIBUTION.md)**: Quick reference for artifact distribution options
+- **[COBERTURA.md](COBERTURA.md)**: Cobertura XML format support and usage guide
 - **[HOLISTIC_HEALTH.md](HOLISTIC_HEALTH.md)**: Holistic testing health analysis documentation
 - **[BASELINE_COVERAGE.md](BASELINE_COVERAGE.md)**: Baseline coverage tracking explanation
 - **[SECURITY.md](SECURITY.md)**: Security policy and best practices for enterprise use
@@ -573,8 +581,8 @@ go run scripts/task.go dogfood
 
 ### Next Steps:
 - Implement Risk Engine (git churn analysis) for v0.2
-- Add Cobertura XML parser support
 - Add Gemini AI integration for test generation
+- Enhanced format detection and error messages
 - Enhanced GitLab MR comment integration
 
 ---
