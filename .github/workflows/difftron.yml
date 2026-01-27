@@ -186,13 +186,58 @@ jobs:
               comment.body.includes('Difftron Coverage Analysis')
             );
             
+            // Helper function to format line numbers into ranges
+            function formatLineNumbers(lines) {
+              if (!lines || lines.length === 0) return '';
+              
+              // Sort and convert to numbers
+              const sorted = [...new Set(lines)].map(Number).sort((a, b) => a - b);
+              
+              // Convert consecutive numbers to ranges
+              const ranges = [];
+              let start = sorted[0];
+              let end = sorted[0];
+              
+              for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i] === end + 1) {
+                  end = sorted[i];
+                } else {
+                  if (start === end) {
+                    ranges.push(start.toString());
+                  } else {
+                    ranges.push(`${start}-${end}`);
+                  }
+                  start = sorted[i];
+                  end = sorted[i];
+                }
+              }
+              
+              // Add the last range
+              if (start === end) {
+                ranges.push(start.toString());
+              } else {
+                ranges.push(`${start}-${end}`);
+              }
+              
+              // Limit display to first 10 ranges/items, then show "... and X more"
+              const maxDisplay = 10;
+              if (ranges.length <= maxDisplay) {
+                return ranges.join(', ');
+              } else {
+                const displayed = ranges.slice(0, maxDisplay).join(', ');
+                const remaining = ranges.length - maxDisplay;
+                return `${displayed} ... and ${remaining} more`;
+              }
+            }
+            
             let filesSummary = '';
             if (analysis.files && Object.keys(analysis.files).length > 0) {
-              filesSummary = '\n### Files\n';
+              filesSummary = '\n### Files\n\n';
               for (const [file, data] of Object.entries(analysis.files)) {
-                filesSummary += `- **${file}**: ${data.coverage_percentage.toFixed(1)}% coverage`;
+                filesSummary += `\`${file}\`: ${data.coverage_percentage.toFixed(1)}% coverage\n`;
                 if (data.uncovered_line_numbers && data.uncovered_line_numbers.length > 0) {
-                  filesSummary += ` (uncovered lines: ${data.uncovered_line_numbers.join(', ')})`;
+                  const formattedLines = formatLineNumbers(data.uncovered_line_numbers);
+                  filesSummary += `  - Uncovered lines: ${formattedLines}\n`;
                 }
                 filesSummary += '\n';
               }
