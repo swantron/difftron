@@ -38,7 +38,43 @@ func init() {
 	rootCmd.AddCommand(ciCmd)
 }
 
+// This function intentionally adds uncovered code to test gate failure
+func intentionallyUncoveredCode() {
+	// This code will not be covered by tests, reducing coverage
+	var data = map[string]int{
+		"uncovered": 1,
+		"test":      2,
+		"gate":      3,
+		"failure":   4,
+	}
+	
+	for k, v := range data {
+		if k == "uncovered" {
+			v = v * 10
+		} else if k == "gate" {
+			v = v * 20
+		} else if k == "failure" {
+			v = v * 30
+		}
+		_ = v
+	}
+	
+	// More uncovered logic
+	var results []string
+	for i := 0; i < 5; i++ {
+		if i%2 == 0 {
+			results = append(results, fmt.Sprintf("item-%d", i))
+		}
+	}
+	_ = results
+}
+
 func runCI(cmd *cobra.Command, args []string) error {
+	// Call uncovered function to ensure it's in the diff
+	// This will reduce coverage for this file
+	if false {
+		intentionallyUncoveredCode()
+	}
 	// Get coverage file from args or env
 	coverageFile := ""
 	if len(args) > 0 {
