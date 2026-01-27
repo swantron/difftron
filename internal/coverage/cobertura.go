@@ -10,13 +10,13 @@ import (
 
 // CoberturaCoverage represents the root element of a Cobertura XML file
 type CoberturaCoverage struct {
-	XMLName     xml.Name            `xml:"coverage"`
-	LineRate    float64             `xml:"line-rate,attr"`
-	BranchRate  float64             `xml:"branch-rate,attr"`
-	LinesCovered int                `xml:"lines-covered,attr"`
-	LinesValid  int                 `xml:"lines-valid,attr"`
-	Sources     CoberturaSources    `xml:"sources"`
-	Packages    CoberturaPackages   `xml:"packages"`
+	XMLName      xml.Name          `xml:"coverage"`
+	LineRate     float64           `xml:"line-rate,attr"`
+	BranchRate   float64           `xml:"branch-rate,attr"`
+	LinesCovered int               `xml:"lines-covered,attr"`
+	LinesValid   int               `xml:"lines-valid,attr"`
+	Sources      CoberturaSources  `xml:"sources"`
+	Packages     CoberturaPackages `xml:"packages"`
 }
 
 // CoberturaSources contains source paths
@@ -32,8 +32,8 @@ type CoberturaPackages struct {
 // CoberturaPackage represents a package in Cobertura
 type CoberturaPackage struct {
 	Name       string           `xml:"name,attr"`
-	LineRate   float64         `xml:"line-rate,attr"`
-	BranchRate float64         `xml:"branch-rate,attr"`
+	LineRate   float64          `xml:"line-rate,attr"`
+	BranchRate float64          `xml:"branch-rate,attr"`
 	Classes    CoberturaClasses `xml:"classes"`
 }
 
@@ -44,10 +44,10 @@ type CoberturaClasses struct {
 
 // CoberturaClass represents a class in Cobertura
 type CoberturaClass struct {
-	Name       string          `xml:"name,attr"`
-	Filename   string          `xml:"filename,attr"`
-	LineRate   float64        `xml:"line-rate,attr"`
-	BranchRate float64        `xml:"branch-rate,attr"`
+	Name       string           `xml:"name,attr"`
+	Filename   string           `xml:"filename,attr"`
+	LineRate   float64          `xml:"line-rate,attr"`
+	BranchRate float64          `xml:"branch-rate,attr"`
 	Methods    CoberturaMethods `xml:"methods"`
 	Lines      CoberturaLines   `xml:"lines"`
 }
@@ -59,10 +59,10 @@ type CoberturaMethods struct {
 
 // CoberturaMethod represents a method (optional, we mainly use lines)
 type CoberturaMethod struct {
-	Name       string        `xml:"name,attr"`
-	Signature  string        `xml:"signature,attr"`
-	LineRate   float64       `xml:"line-rate,attr"`
-	BranchRate float64       `xml:"branch-rate,attr"`
+	Name       string         `xml:"name,attr"`
+	Signature  string         `xml:"signature,attr"`
+	LineRate   float64        `xml:"line-rate,attr"`
+	BranchRate float64        `xml:"branch-rate,attr"`
 	Lines      CoberturaLines `xml:"lines"`
 }
 
@@ -73,9 +73,9 @@ type CoberturaLines struct {
 
 // CoberturaLine represents a single line in Cobertura
 type CoberturaLine struct {
-	Number int `xml:"number,attr"`
-	Hits   int `xml:"hits,attr"`
-	Branch bool `xml:"branch,attr"`
+	Number            int    `xml:"number,attr"`
+	Hits              int    `xml:"hits,attr"`
+	Branch            bool   `xml:"branch,attr"`
 	ConditionCoverage string `xml:"condition-coverage,attr"`
 }
 
@@ -108,17 +108,17 @@ func ParseCobertura(filePath string) (*Report, error) {
 	for _, pkg := range cobertura.Packages.Package {
 		for _, class := range pkg.Classes.Class {
 			filePath := resolveFilePath(class.Filename, sourcePaths)
-			
+
 			// Normalize the file path
 			filePath = NormalizePath(filePath)
-			
+
 			// Initialize coverage data for this file if not exists
 			if report.FileCoverage[filePath] == nil {
 				report.FileCoverage[filePath] = &CoverageData{
 					LineHits: make(map[int]int),
 				}
 			}
-			
+
 			fileCoverage := report.FileCoverage[filePath]
 
 			// Process lines from class level (preferred)

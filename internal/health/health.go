@@ -11,95 +11,95 @@ import (
 type TestType string
 
 const (
-	TestTypeUnit      TestType = "unit"
-	TestTypeAPI       TestType = "api"
-	TestTypeFunctional TestType = "functional"
+	TestTypeUnit        TestType = "unit"
+	TestTypeAPI         TestType = "api"
+	TestTypeFunctional  TestType = "functional"
 	TestTypeIntegration TestType = "integration"
-	TestTypeE2E        TestType = "e2e"
+	TestTypeE2E         TestType = "e2e"
 )
 
 // TestCoverageReport represents coverage from a specific test type
 type TestCoverageReport struct {
-	TestType      TestType
+	TestType       TestType
 	CoverageReport *coverage.Report
-	TestCount     int    // Number of tests run
-	Duration      string // Test execution duration
-	Source        string // Source file or command that generated this coverage
+	TestCount      int    // Number of tests run
+	Duration       string // Test execution duration
+	Source         string // Source file or command that generated this coverage
 }
 
 // FileHealth represents comprehensive health metrics for a single file
 type FileHealth struct {
 	FilePath string
-	
+
 	// Overall metrics (aggregated across all test types)
-	TotalLines      int
-	CoveredLines    int
-	UncoveredLines  int
+	TotalLines         int
+	CoveredLines       int
+	UncoveredLines     int
 	CoveragePercentage float64
-	
+
 	// Per-test-type coverage
-	UnitTestCoverage      float64
-	APITestCoverage       float64
+	UnitTestCoverage       float64
+	APITestCoverage        float64
 	FunctionalTestCoverage float64
-	
+
 	// Change-specific metrics
-	ChangedLines      int
-	ChangedCoveredLines int
-	ChangedUncoveredLines int
+	ChangedLines              int
+	ChangedCoveredLines       int
+	ChangedUncoveredLines     int
 	ChangedCoveragePercentage float64
-	
+
 	// Baseline comparison
 	BaselineCoveragePercentage float64
 	CoverageDelta              float64 // Current - Baseline
-	
+
 	// Test type breakdown for changed lines
-	ChangedLinesCoveredByUnit      int
-	ChangedLinesCoveredByAPI       int
+	ChangedLinesCoveredByUnit       int
+	ChangedLinesCoveredByAPI        int
 	ChangedLinesCoveredByFunctional int
-	
+
 	// Health indicators
-	IsNewFile bool
-	HasRegression bool // Coverage dropped below baseline
+	IsNewFile      bool
+	HasRegression  bool // Coverage dropped below baseline
 	NeedsAttention bool // Low coverage or regression
 }
 
 // HealthReport provides a comprehensive view of testing health
 type HealthReport struct {
 	// Overall project metrics
-	TotalFiles           int
-	TotalLines           int
-	TotalCoveredLines    int
-	TotalUncoveredLines  int
-	OverallCoverage      float64
-	
+	TotalFiles          int
+	TotalLines          int
+	TotalCoveredLines   int
+	TotalUncoveredLines int
+	OverallCoverage     float64
+
 	// Change-specific metrics
-	ChangedFiles         int
-	ChangedLines         int
-	ChangedCoveredLines  int
+	ChangedFiles          int
+	ChangedLines          int
+	ChangedCoveredLines   int
 	ChangedUncoveredLines int
-	ChangedCoverage      float64
-	
+	ChangedCoverage       float64
+
 	// Test type coverage summary
-	UnitTestCoverage      float64
-	APITestCoverage       float64
+	UnitTestCoverage       float64
+	APITestCoverage        float64
 	FunctionalTestCoverage float64
-	
+
 	// File-level health
 	FileHealth map[string]*FileHealth
-	
+
 	// New vs Modified breakdown
-	NewFilesCount      int
-	ModifiedFilesCount int
-	NewFilesCoverage   float64
+	NewFilesCount         int
+	ModifiedFilesCount    int
+	NewFilesCoverage      float64
 	ModifiedFilesCoverage float64
-	
+
 	// Health summary
-	HealthyFiles      int // Files meeting threshold
-	AtRiskFiles       int // Files below threshold
-	RegressingFiles   int // Files with coverage drop
-	
+	HealthyFiles    int // Files meeting threshold
+	AtRiskFiles     int // Files below threshold
+	RegressingFiles int // Files with coverage drop
+
 	// Insights and recommendations
-	Insights []Insight
+	Insights        []Insight
 	Recommendations []Recommendation
 }
 
@@ -120,7 +120,7 @@ type Recommendation struct {
 	Category    string // "add-tests", "improve-coverage", "fix-regression"
 	Title       string
 	Description string
-	Action      string // Specific action to take
+	Action      string   // Specific action to take
 	Files       []string // Files that need attention
 	TestType    TestType // Recommended test type
 }
@@ -207,8 +207,8 @@ func AnalyzeHealth(
 	}
 
 	report := &HealthReport{
-		FileHealth: make(map[string]*FileHealth),
-		Insights:   make([]Insight, 0),
+		FileHealth:      make(map[string]*FileHealth),
+		Insights:        make([]Insight, 0),
 		Recommendations: make([]Recommendation, 0),
 	}
 
@@ -282,7 +282,7 @@ func (r *HealthReport) analyzeFileHealth(
 	threshold float64,
 ) *FileHealth {
 	health := &FileHealth{
-		FilePath: filePath,
+		FilePath:  filePath,
 		IsNewFile: diffResult.IsNewFile(filePath),
 	}
 
@@ -325,7 +325,7 @@ func (r *HealthReport) analyzeFileHealth(
 
 		if isCovered {
 			health.ChangedCoveredLines++
-			
+
 			// Check which test types cover this line
 			for _, testReport := range testReports {
 				if testReport.CoverageReport == nil {

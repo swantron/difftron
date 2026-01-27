@@ -8,56 +8,56 @@ import (
 
 // FormatHealthReport formats a health report for output
 type FormatHealthReport struct {
-	Summary       SummarySection       `json:"summary"`
-	TestTypes     TestTypeSection      `json:"test_types"`
-	Changes       ChangesSection       `json:"changes"`
-	Files         []FileSection        `json:"files"`
-	Insights      []InsightSection     `json:"insights"`
+	Summary         SummarySection          `json:"summary"`
+	TestTypes       TestTypeSection         `json:"test_types"`
+	Changes         ChangesSection          `json:"changes"`
+	Files           []FileSection           `json:"files"`
+	Insights        []InsightSection        `json:"insights"`
 	Recommendations []RecommendationSection `json:"recommendations"`
 }
 
 type SummarySection struct {
-	OverallCoverage      float64 `json:"overall_coverage"`
-	ChangedCoverage      float64 `json:"changed_coverage"`
-	TotalFiles           int     `json:"total_files"`
-	ChangedFiles         int     `json:"changed_files"`
-	HealthyFiles         int     `json:"healthy_files"`
-	AtRiskFiles          int     `json:"at_risk_files"`
-	RegressingFiles      int     `json:"regressing_files"`
-	NewFilesCount        int     `json:"new_files_count"`
-	ModifiedFilesCount   int     `json:"modified_files_count"`
-	NewFilesCoverage     float64 `json:"new_files_coverage"`
+	OverallCoverage       float64 `json:"overall_coverage"`
+	ChangedCoverage       float64 `json:"changed_coverage"`
+	TotalFiles            int     `json:"total_files"`
+	ChangedFiles          int     `json:"changed_files"`
+	HealthyFiles          int     `json:"healthy_files"`
+	AtRiskFiles           int     `json:"at_risk_files"`
+	RegressingFiles       int     `json:"regressing_files"`
+	NewFilesCount         int     `json:"new_files_count"`
+	ModifiedFilesCount    int     `json:"modified_files_count"`
+	NewFilesCoverage      float64 `json:"new_files_coverage"`
 	ModifiedFilesCoverage float64 `json:"modified_files_coverage"`
 }
 
 type TestTypeSection struct {
-	UnitTestCoverage      float64 `json:"unit_test_coverage"`
-	APITestCoverage       float64 `json:"api_test_coverage"`
+	UnitTestCoverage       float64 `json:"unit_test_coverage"`
+	APITestCoverage        float64 `json:"api_test_coverage"`
 	FunctionalTestCoverage float64 `json:"functional_test_coverage"`
 }
 
 type ChangesSection struct {
-	TotalChangedLines     int     `json:"total_changed_lines"`
-	CoveredLines          int     `json:"covered_lines"`
-	UncoveredLines        int     `json:"uncovered_lines"`
-	CoveragePercentage   float64 `json:"coverage_percentage"`
+	TotalChangedLines  int     `json:"total_changed_lines"`
+	CoveredLines       int     `json:"covered_lines"`
+	UncoveredLines     int     `json:"uncovered_lines"`
+	CoveragePercentage float64 `json:"coverage_percentage"`
 }
 
 type FileSection struct {
-	FilePath              string   `json:"file_path"`
-	IsNewFile             bool     `json:"is_new_file"`
-	OverallCoverage       float64  `json:"overall_coverage"`
-	ChangedCoverage       float64  `json:"changed_coverage"`
-	BaselineCoverage      float64  `json:"baseline_coverage"`
-	CoverageDelta         float64  `json:"coverage_delta"`
-	ChangedLines          int      `json:"changed_lines"`
-	CoveredLines          int      `json:"covered_lines"`
-	UncoveredLines        int      `json:"uncovered_lines"`
-	UnitTestCoverage      float64  `json:"unit_test_coverage"`
-	APITestCoverage       float64  `json:"api_test_coverage"`
+	FilePath               string  `json:"file_path"`
+	IsNewFile              bool    `json:"is_new_file"`
+	OverallCoverage        float64 `json:"overall_coverage"`
+	ChangedCoverage        float64 `json:"changed_coverage"`
+	BaselineCoverage       float64 `json:"baseline_coverage"`
+	CoverageDelta          float64 `json:"coverage_delta"`
+	ChangedLines           int     `json:"changed_lines"`
+	CoveredLines           int     `json:"covered_lines"`
+	UncoveredLines         int     `json:"uncovered_lines"`
+	UnitTestCoverage       float64 `json:"unit_test_coverage"`
+	APITestCoverage        float64 `json:"api_test_coverage"`
 	FunctionalTestCoverage float64 `json:"functional_test_coverage"`
-	Status                string   `json:"status"` // "healthy", "at_risk", "regressing"
-	UncoveredLineNumbers  []int    `json:"uncovered_line_numbers"`
+	Status                 string  `json:"status"` // "healthy", "at_risk", "regressing"
+	UncoveredLineNumbers   []int   `json:"uncovered_line_numbers"`
 }
 
 type InsightSection struct {
@@ -298,31 +298,31 @@ func (r *HealthReport) ToStructuredText() string {
 func (r *HealthReport) toFormatted() *FormatHealthReport {
 	formatted := &FormatHealthReport{
 		Summary: SummarySection{
-			OverallCoverage:      r.OverallCoverage,
-			ChangedCoverage:      r.ChangedCoverage,
-			TotalFiles:           r.TotalFiles,
-			ChangedFiles:         r.ChangedFiles,
-			HealthyFiles:         r.HealthyFiles,
-			AtRiskFiles:          r.AtRiskFiles,
-			RegressingFiles:      r.RegressingFiles,
-			NewFilesCount:        r.NewFilesCount,
-			ModifiedFilesCount:   r.ModifiedFilesCount,
-			NewFilesCoverage:     r.NewFilesCoverage,
+			OverallCoverage:       r.OverallCoverage,
+			ChangedCoverage:       r.ChangedCoverage,
+			TotalFiles:            r.TotalFiles,
+			ChangedFiles:          r.ChangedFiles,
+			HealthyFiles:          r.HealthyFiles,
+			AtRiskFiles:           r.AtRiskFiles,
+			RegressingFiles:       r.RegressingFiles,
+			NewFilesCount:         r.NewFilesCount,
+			ModifiedFilesCount:    r.ModifiedFilesCount,
+			NewFilesCoverage:      r.NewFilesCoverage,
 			ModifiedFilesCoverage: r.ModifiedFilesCoverage,
 		},
 		TestTypes: TestTypeSection{
-			UnitTestCoverage:      r.UnitTestCoverage,
-			APITestCoverage:       r.APITestCoverage,
+			UnitTestCoverage:       r.UnitTestCoverage,
+			APITestCoverage:        r.APITestCoverage,
 			FunctionalTestCoverage: r.FunctionalTestCoverage,
 		},
 		Changes: ChangesSection{
-			TotalChangedLines:   r.ChangedLines,
-			CoveredLines:        r.ChangedCoveredLines,
-			UncoveredLines:      r.ChangedUncoveredLines,
-			CoveragePercentage:  r.ChangedCoverage,
+			TotalChangedLines:  r.ChangedLines,
+			CoveredLines:       r.ChangedCoveredLines,
+			UncoveredLines:     r.ChangedUncoveredLines,
+			CoveragePercentage: r.ChangedCoverage,
 		},
-		Files:         make([]FileSection, 0),
-		Insights:      make([]InsightSection, 0),
+		Files:           make([]FileSection, 0),
+		Insights:        make([]InsightSection, 0),
 		Recommendations: make([]RecommendationSection, 0),
 	}
 
@@ -336,19 +336,19 @@ func (r *HealthReport) toFormatted() *FormatHealthReport {
 		}
 
 		formatted.Files = append(formatted.Files, FileSection{
-			FilePath:              filePath,
-			IsNewFile:             fileHealth.IsNewFile,
-			OverallCoverage:       fileHealth.CoveragePercentage,
-			ChangedCoverage:       fileHealth.ChangedCoveragePercentage,
-			BaselineCoverage:      fileHealth.BaselineCoveragePercentage,
-			CoverageDelta:         fileHealth.CoverageDelta,
-			ChangedLines:          fileHealth.ChangedLines,
-			CoveredLines:          fileHealth.ChangedCoveredLines,
-			UncoveredLines:        fileHealth.ChangedUncoveredLines,
-			UnitTestCoverage:      fileHealth.UnitTestCoverage,
-			APITestCoverage:       fileHealth.APITestCoverage,
+			FilePath:               filePath,
+			IsNewFile:              fileHealth.IsNewFile,
+			OverallCoverage:        fileHealth.CoveragePercentage,
+			ChangedCoverage:        fileHealth.ChangedCoveragePercentage,
+			BaselineCoverage:       fileHealth.BaselineCoveragePercentage,
+			CoverageDelta:          fileHealth.CoverageDelta,
+			ChangedLines:           fileHealth.ChangedLines,
+			CoveredLines:           fileHealth.ChangedCoveredLines,
+			UncoveredLines:         fileHealth.ChangedUncoveredLines,
+			UnitTestCoverage:       fileHealth.UnitTestCoverage,
+			APITestCoverage:        fileHealth.APITestCoverage,
 			FunctionalTestCoverage: fileHealth.FunctionalTestCoverage,
-			Status:                status,
+			Status:                 status,
 		})
 	}
 
