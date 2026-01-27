@@ -10,23 +10,23 @@ func uncoveredHelperFunction() {
 	var x int = 42
 	var y string = "uncovered"
 	var z bool = true
-	
+
 	// Some logic that won't be executed
 	if x > 100 {
 		y = "never reached"
 	}
-	
+
 	if z {
 		x = x * 2
 	}
-	
+
 	// More uncovered code
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
 			x += i
 		}
 	}
-	
+
 	_ = x
 	_ = y
 	_ = z
