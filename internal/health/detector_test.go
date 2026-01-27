@@ -23,7 +23,7 @@ func TestDetectTestType(t *testing.T) {
 		{"postman", "postman collection", TestTypeAPI},
 		{"newman", "newman run", TestTypeAPI},
 		{"functional test file", "functional_test.go", TestTypeUnit}, // _test.go matches unit first
-		{"e2e test file", "e2e_test.go", TestTypeUnit}, // _test.go matches unit first
+		{"e2e test file", "e2e_test.go", TestTypeUnit},               // _test.go matches unit first
 		{"end-to-end", "end-to-end tests", TestTypeFunctional},
 		{"cypress", "cypress run", TestTypeFunctional},
 		{"playwright", "playwright test", TestTypeFunctional},

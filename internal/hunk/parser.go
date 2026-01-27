@@ -65,11 +65,11 @@ func ParseGitDiff(diffOutput string) (*ParseResult, error) {
 				currentFileOldPath = ""
 				continue
 			}
-			
+
 			result.ChangedLines[currentFile] = make(map[int]bool)
 			result.AddedLines[currentFile] = make(map[int]bool)
 			result.RemovedLines[currentFile] = make(map[int]bool)
-			
+
 			// Detect if this is a new file
 			// New files have old path as /dev/null or empty
 			if currentFileOldPath == "/dev/null" || currentFileOldPath == "" {
@@ -77,7 +77,7 @@ func ParseGitDiff(diffOutput string) (*ParseResult, error) {
 			} else {
 				result.ModifiedFiles[currentFile] = true
 			}
-			
+
 			currentFileOldPath = "" // Reset for next file
 			continue
 		}

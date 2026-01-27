@@ -93,10 +93,10 @@ func TestHealthReport_WithFileHealth(t *testing.T) {
 		ChangedFiles:    1,
 		FileHealth: map[string]*FileHealth{
 			"test.go": {
-				FilePath:              "test.go",
-				CoveragePercentage:    80.0,
+				FilePath:                  "test.go",
+				CoveragePercentage:        80.0,
 				ChangedCoveragePercentage: 75.0,
-				IsNewFile:             false,
+				IsNewFile:                 false,
 			},
 		},
 		Insights:        []Insight{},

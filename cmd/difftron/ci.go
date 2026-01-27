@@ -145,20 +145,20 @@ func runCI(cmd *cobra.Command, args []string) error {
 
 	// Create CI output
 	ciOutput := CIOutput{
-		Coverage:        analysisResult.CoveragePercentage,
-		Threshold:       ciThreshold,
-		MeetsThreshold:  analysisResult.MeetsThreshold(ciThreshold),
-		TotalLines:      analysisResult.TotalChangedLines,
-		CoveredLines:    analysisResult.CoveredLines,
-		UncoveredLines:  analysisResult.UncoveredLines,
-		Files:           make(map[string]FileCIOutput),
+		Coverage:       analysisResult.CoveragePercentage,
+		Threshold:      ciThreshold,
+		MeetsThreshold: analysisResult.MeetsThreshold(ciThreshold),
+		TotalLines:     analysisResult.TotalChangedLines,
+		CoveredLines:   analysisResult.CoveredLines,
+		UncoveredLines: analysisResult.UncoveredLines,
+		Files:          make(map[string]FileCIOutput),
 	}
 
 	for filePath, fileResult := range analysisResult.FileResults {
 		ciOutput.Files[filePath] = FileCIOutput{
-			Coverage:       fileResult.CoveragePercentage,
-			CoveredLines:   fileResult.CoveredLines,
-			UncoveredLines: fileResult.UncoveredLines,
+			Coverage:             fileResult.CoveragePercentage,
+			CoveredLines:         fileResult.CoveredLines,
+			UncoveredLines:       fileResult.UncoveredLines,
 			UncoveredLineNumbers: fileResult.UncoveredLineNumbers,
 		}
 	}
@@ -180,9 +180,9 @@ func runCI(cmd *cobra.Command, args []string) error {
 
 	// Print summary
 	fmt.Fprintf(os.Stderr, "\n=== Difftron CI Analysis ===\n")
-	fmt.Fprintf(os.Stderr, "Coverage: %.1f%% (threshold: %.1f%%)\n", 
+	fmt.Fprintf(os.Stderr, "Coverage: %.1f%% (threshold: %.1f%%)\n",
 		analysisResult.CoveragePercentage, ciThreshold)
-	fmt.Fprintf(os.Stderr, "Status: %s\n", 
+	fmt.Fprintf(os.Stderr, "Status: %s\n",
 		map[bool]string{true: "PASS", false: "FAIL"}[ciOutput.MeetsThreshold])
 	fmt.Fprintf(os.Stderr, "Changed Lines: %d | Covered: %d | Uncovered: %d\n",
 		analysisResult.TotalChangedLines,
@@ -199,21 +199,21 @@ func runCI(cmd *cobra.Command, args []string) error {
 
 // CIOutput represents the structured output for CI systems
 type CIOutput struct {
-	Coverage       float64                  `json:"coverage_percentage"`
-	Threshold      float64                  `json:"threshold"`
-	MeetsThreshold bool                     `json:"meets_threshold"`
-	TotalLines     int                      `json:"total_changed_lines"`
-	CoveredLines   int                      `json:"covered_lines"`
-	UncoveredLines int                      `json:"uncovered_lines"`
+	Coverage       float64                 `json:"coverage_percentage"`
+	Threshold      float64                 `json:"threshold"`
+	MeetsThreshold bool                    `json:"meets_threshold"`
+	TotalLines     int                     `json:"total_changed_lines"`
+	CoveredLines   int                     `json:"covered_lines"`
+	UncoveredLines int                     `json:"uncovered_lines"`
 	Files          map[string]FileCIOutput `json:"files"`
 }
 
 // FileCIOutput represents file-level CI output
 type FileCIOutput struct {
-	Coverage            float64 `json:"coverage_percentage"`
-	CoveredLines        int     `json:"covered_lines"`
-	UncoveredLines      int     `json:"uncovered_lines"`
-	UncoveredLineNumbers []int  `json:"uncovered_line_numbers"`
+	Coverage             float64 `json:"coverage_percentage"`
+	CoveredLines         int     `json:"covered_lines"`
+	UncoveredLines       int     `json:"uncovered_lines"`
+	UncoveredLineNumbers []int   `json:"uncovered_line_numbers"`
 }
 
 func detectBaseRef() string {

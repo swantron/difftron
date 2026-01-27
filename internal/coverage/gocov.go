@@ -177,9 +177,9 @@ func DetectCoverageFormat(filePath string) (string, error) {
 	if len(content) > 1000 {
 		content = content[:1000] // Only check first 1KB
 	}
-	
+
 	trimmed := strings.TrimSpace(content)
-	
+
 	// Check for Cobertura XML format
 	if strings.HasPrefix(trimmed, "<?xml") || strings.Contains(content, "<coverage") {
 		// Check if it's Cobertura format
@@ -190,20 +190,20 @@ func DetectCoverageFormat(filePath string) (string, error) {
 			}
 		}
 	}
-	
+
 	// Check for LCOV format markers (must be first)
-	if strings.HasPrefix(trimmed, "TN:") || 
-	   strings.HasPrefix(trimmed, "SF:") ||
-	   (strings.Contains(content, "SF:") && strings.Contains(content, "DA:")) {
+	if strings.HasPrefix(trimmed, "TN:") ||
+		strings.HasPrefix(trimmed, "SF:") ||
+		(strings.Contains(content, "SF:") && strings.Contains(content, "DA:")) {
 		return "lcov", nil
 	}
-	
+
 	// Check for Go coverage format
 	// Go coverage.out files start with "mode:" on first line
 	if strings.HasPrefix(trimmed, "mode:") {
 		return "go", nil
 	}
-	
+
 	// If file extension is .out and starts with binary-looking data or "mode:", assume Go
 	if filepath.Ext(filePath) == ".out" {
 		// Check if it looks like Go coverage (starts with "mode:" or is binary)
@@ -215,7 +215,7 @@ func DetectCoverageFormat(filePath string) (string, error) {
 			return "go", nil
 		}
 	}
-	
+
 	// Default to LCOV
 	return "lcov", nil
 }

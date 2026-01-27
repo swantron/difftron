@@ -91,7 +91,7 @@ func TestDetectCoverageFormat_LCOV(t *testing.T) {
 				defer os.Remove(newPath)
 				testPath = newPath
 			}
-			
+
 			result, err := DetectCoverageFormat(testPath)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -197,7 +197,7 @@ func TestParseGoCoverage_EmptyFile(t *testing.T) {
 		// Error is acceptable for empty file
 		return
 	}
-	
+
 	// If no error, report should be empty or nil
 	if report != nil && len(report.FileCoverage) > 0 {
 		t.Error("expected empty report for empty coverage file")
@@ -266,11 +266,11 @@ func createRealGoCoverageFile(t *testing.T) string {
 	// Get the package directory
 	_, testFile, _, _ := runtime.Caller(1) // Caller(1) because we're called from test
 	pkgDir := filepath.Dir(testFile)
-	
+
 	// Run go test with coverage with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, "go", "test", "-coverprofile="+tmpfile.Name(), pkgDir)
 	if err := cmd.Run(); err != nil {
 		// If tests fail or timeout, create a minimal valid coverage file instead

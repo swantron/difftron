@@ -158,10 +158,10 @@ index 123..456 100644
 
 func TestParseResult_HasChanges(t *testing.T) {
 	result := &ParseResult{
-		ChangedLines: make(map[string]map[int]bool),
-		AddedLines:   make(map[string]map[int]bool),
-		RemovedLines: make(map[string]map[int]bool),
-		NewFiles:     make(map[string]bool),
+		ChangedLines:  make(map[string]map[int]bool),
+		AddedLines:    make(map[string]map[int]bool),
+		RemovedLines:  make(map[string]map[int]bool),
+		NewFiles:      make(map[string]bool),
 		ModifiedFiles: make(map[string]bool),
 	}
 

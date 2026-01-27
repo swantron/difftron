@@ -73,9 +73,9 @@ func ParseTestCoverageReports(coverageFiles []string, testTypes []TestType, cove
 		}
 
 		reports = append(reports, &TestCoverageReport{
-			TestType:      testType,
+			TestType:       testType,
 			CoverageReport: coverageReports[i],
-			Source:        file,
+			Source:         file,
 		})
 	}
 

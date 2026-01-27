@@ -74,13 +74,13 @@ func main() {
 			headRef = args[1]
 		}
 		fmt.Printf("Dogfooding: analyzing %s..%s\n", baseRef, headRef)
-		
+
 		// Build first
 		run("go", "build", "-o", "bin/difftron", "./cmd/difftron")
-		
+
 		// Generate coverage
 		run("go", "test", "-coverprofile=coverage.out", "./...")
-		
+
 		// Generate diff
 		cmd := exec.Command("git", "diff", baseRef+".."+headRef)
 		diffFile, err := os.CreateTemp("", "difftron-diff-*.patch")
@@ -89,7 +89,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer os.Remove(diffFile.Name())
-		
+
 		cmd.Stdout = diffFile
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("Warning: git diff failed (no changes?): %v\n", err)
@@ -97,14 +97,14 @@ func main() {
 			return
 		}
 		diffFile.Close()
-		
+
 		// Check if diff is empty
 		info, _ := os.Stat(diffFile.Name())
 		if info.Size() == 0 {
 			fmt.Println("No changes to analyze.")
 			return
 		}
-		
+
 		// Run analysis
 		run("go", "run", "./cmd/difftron", "analyze",
 			"--coverage", "coverage.out",

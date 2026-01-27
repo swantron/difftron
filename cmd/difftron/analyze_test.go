@@ -14,11 +14,11 @@ func TestOutputText(t *testing.T) {
 		CoveragePercentage: 80.0,
 		FileResults: map[string]*analyzer.FileResult{
 			"test.go": {
-				TotalChangedLines:     10,
-				CoveredLines:          8,
-				UncoveredLines:        2,
+				TotalChangedLines:    10,
+				CoveredLines:         8,
+				UncoveredLines:       2,
 				CoveragePercentage:   80.0,
-				UncoveredLineNumbers:  []int{5, 7},
+				UncoveredLineNumbers: []int{5, 7},
 			},
 		},
 	}
@@ -64,11 +64,11 @@ func TestOutputJSON(t *testing.T) {
 		CoveragePercentage: 80.0,
 		FileResults: map[string]*analyzer.FileResult{
 			"test.go": {
-				TotalChangedLines:     10,
-				CoveredLines:          8,
-				UncoveredLines:        2,
+				TotalChangedLines:    10,
+				CoveredLines:         8,
+				UncoveredLines:       2,
 				CoveragePercentage:   80.0,
-				UncoveredLineNumbers:  []int{5, 7},
+				UncoveredLineNumbers: []int{5, 7},
 			},
 		},
 	}

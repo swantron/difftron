@@ -19,7 +19,7 @@ type AnalysisResult struct {
 	CoveragePercentage float64
 	// FileResults contains per-file analysis results
 	FileResults map[string]*FileResult
-	
+
 	// NewFileMetrics tracks coverage for new files only
 	NewFileMetrics *FileTypeMetrics
 	// ModifiedFileMetrics tracks coverage for modified files only
@@ -28,11 +28,11 @@ type AnalysisResult struct {
 
 // FileTypeMetrics tracks coverage metrics for a specific type of files (new or modified)
 type FileTypeMetrics struct {
-	TotalChangedLines int
-	CoveredLines      int
-	UncoveredLines    int
+	TotalChangedLines  int
+	CoveredLines       int
+	UncoveredLines     int
 	CoveragePercentage float64
-	FileCount         int
+	FileCount          int
 }
 
 // FileResult contains analysis results for a single file
@@ -69,8 +69,8 @@ func AnalyzeWithBaseline(diffResult *hunk.ParseResult, coverageReport *coverage.
 	}
 
 	result := &AnalysisResult{
-		FileResults:        make(map[string]*FileResult),
-		NewFileMetrics:     &FileTypeMetrics{},
+		FileResults:         make(map[string]*FileResult),
+		NewFileMetrics:      &FileTypeMetrics{},
 		ModifiedFileMetrics: &FileTypeMetrics{},
 	}
 
@@ -142,7 +142,7 @@ func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *cov
 		if baselineFileCoverage == nil {
 			baselineFileCoverage = baselineReport.GetCoverageForFile(normalizedPath)
 		}
-		
+
 		// Calculate baseline coverage percentage for the changed lines
 		if baselineFileCoverage != nil {
 			baselineCovered := 0

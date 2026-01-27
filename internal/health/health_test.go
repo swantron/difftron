@@ -27,7 +27,7 @@ func TestAggregateCoverage(t *testing.T) {
 			CoverageReport: &coverage.Report{
 				FileCoverage: map[string]*coverage.CoverageData{
 					"file.go": {
-						TotalLines:  10,
+						TotalLines:   10,
 						CoveredLines: 8,
 						LineHits: map[int]int{
 							1: 5, 2: 3, 3: 0, 4: 2,
@@ -60,7 +60,7 @@ func TestAggregateCoverage(t *testing.T) {
 			CoverageReport: &coverage.Report{
 				FileCoverage: map[string]*coverage.CoverageData{
 					"file.go": {
-						TotalLines:  10,
+						TotalLines:   10,
 						CoveredLines: 5,
 						LineHits: map[int]int{
 							1: 5, 2: 3, 3: 0,
@@ -75,7 +75,7 @@ func TestAggregateCoverage(t *testing.T) {
 			CoverageReport: &coverage.Report{
 				FileCoverage: map[string]*coverage.CoverageData{
 					"file.go": {
-						TotalLines:  10,
+						TotalLines:   10,
 						CoveredLines: 4,
 						LineHits: map[int]int{
 							3: 2, 4: 1, 5: 0,
@@ -106,7 +106,7 @@ func TestAggregateCoverage(t *testing.T) {
 
 	t.Run("nil coverage report skipped", func(t *testing.T) {
 		report := &TestCoverageReport{
-			TestType:      TestTypeUnit,
+			TestType:       TestTypeUnit,
 			CoverageReport: nil,
 		}
 
@@ -174,7 +174,7 @@ index 123..456 100644
 				CoverageReport: &coverage.Report{
 					FileCoverage: map[string]*coverage.CoverageData{
 						"file.go": {
-							TotalLines:  10,
+							TotalLines:   10,
 							CoveredLines: 8,
 							LineHits: map[int]int{
 								6: 5, 7: 3, 8: 2,
@@ -206,11 +206,11 @@ func TestHealthReport_calculateOverallMetrics(t *testing.T) {
 	coverageReport := &coverage.Report{
 		FileCoverage: map[string]*coverage.CoverageData{
 			"file1.go": {
-				TotalLines:  10,
+				TotalLines:   10,
 				CoveredLines: 8,
 			},
 			"file2.go": {
-				TotalLines:  20,
+				TotalLines:   20,
 				CoveredLines: 15,
 			},
 		},
