@@ -1,0 +1,120 @@
+name: Dogfood Difftron
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  dogfood:
+    name: Run Difftron on Difftron
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build difftron
+        run: go build -o bin/difftron ./cmd/difftron
+
+      - name: Run tests with coverage
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: Run difftron analyze on itself
+        id: difftron
+        continue-on-error: true
+        run: |
+          ./bin/difftron analyze \
+            --coverage coverage.out \
+            --threshold 80 \
+            --threshold-new 90 \
+            --threshold-modified 75 \
+            --output json > self-analysis.json || EXIT_CODE=$?
+          
+          # Extract results
+          if [ -f self-analysis.json ]; then
+            MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' self-analysis.json 2>/dev/null || echo "false")
+            COVERAGE=$(jq -r '.coverage_percentage // 0' self-analysis.json 2>/dev/null || echo "0")
+            echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          fi
+          
+          exit ${EXIT_CODE:-0}
+
+      - name: Upload self-analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: difftron-self-analysis
+          path: |
+            self-analysis.json
+            coverage.out
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && steps.difftron.outcome != 'skipped'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let comment = '## 🐕 Difftron Self-Analysis\n\n';
+            
+            if (fs.existsSync('self-analysis.json')) {
+              const analysis = JSON.parse(fs.readFileSync('self-analysis.json', 'utf8'));
+              const meetsThreshold = analysis.meets_threshold;
+              const coverage = analysis.coverage_percentage;
+              
+              comment += `**Coverage:** ${coverage.toFixed(1)}%\n`;
+              comment += `**Status:** ${meetsThreshold ? '✅ PASS' : '❌ FAIL'}\n\n`;
+              
+              if (analysis.files) {
+                comment += '### File Details\n\n';
+                comment += '| File | Coverage | Status |\n';
+                comment += '|------|----------|--------|\n';
+                
+                for (const [file, data] of Object.entries(analysis.files)) {
+                  const status = data.coverage_percentage >= 80 ? '✅' : '❌';
+                  comment += `| \`${file}\` | ${data.coverage_percentage.toFixed(1)}% | ${status} |\n`;
+                }
+              }
+            } else {
+              comment += '⚠️ Analysis file not found.\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Gate merge
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: |
+          MEETS_THRESHOLD="${{ steps.difftron.outputs.meets_threshold }}"
+          if [ "$MEETS_THRESHOLD" != "true" ] && [ -n "$MEETS_THRESHOLD" ]; then
+            echo "❌ Difftron self-analysis failed - coverage threshold not met!"
+            exit 1
+          elif [ "${{ steps.difftron.outcome }}" == "failure" ]; then
+            echo "❌ Difftron self-analysis failed!"
+            exit 1
+          else
+            echo "✅ Difftron self-analysis passed - gate passed!"
+          fi

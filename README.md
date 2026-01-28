@@ -244,6 +244,22 @@ The included `.github/workflows/difftron.yml` workflow provides:
 - **Automatic PR comments** with coverage analysis
 - **Gating**: Blocks merges if coverage threshold not met
 - **Configurable threshold**: Set via workflow input or PR labels
+- **Separate thresholds**: Different thresholds for new vs modified files
+
+#### Reusable Template
+
+Use the reusable workflow template in your own workflows:
+
+```yaml
+jobs:
+  difftron:
+    uses: ./.github/workflows/difftron-template.yml
+    with:
+      threshold: '80'
+      threshold_new: '90'
+      threshold_modified: '75'
+      use_health_command: 'true'
+```
 
 #### Configuration
 
@@ -252,6 +268,8 @@ The included `.github/workflows/difftron.yml` workflow provides:
 **Per-PR threshold**: Add label `coverage-threshold:90` to set 90% threshold
 
 **Manual trigger**: Set threshold when manually running the workflow
+
+**Dogfooding**: `.github/workflows/dogfood.yml` runs difftron on itself
 
 See [.github/workflows/README.md](.github/workflows/README.md) for detailed configuration options.
 
@@ -531,8 +549,9 @@ difftron analyze --coverage coverage.xml --output markdown > report.md
 ## Roadmap Summary
 
 * [x] **v0.1**: CLI Core (Diff + LCOV parsing). **COMPLETE**
+* [x] **v0.1+**: Health command, line-by-line coverage, separate thresholds, CI templates. **COMPLETE**
 * [ ] **v0.2**: Risk Scoring (Git Churn + Complexity).
-* [ ] **v0.3**: GitHub Action/GitLab CI Commenter.
+* [ ] **v0.3**: Enhanced PR/MR commenter with full API integration.
 * [ ] **v0.4**: Gemini-powered Test Generation.
 
 ---
@@ -598,14 +617,18 @@ go run scripts/task.go dogfood
 ### Documentation
 
 - **[README.md](README.md)**: This file - overview and quick start
+- **[HEALTH_COMMAND.md](HEALTH_COMMAND.md)**: Comprehensive health command documentation
+- **[HOLISTIC_HEALTH.md](HOLISTIC_HEALTH.md)**: Holistic testing health analysis documentation
+- **[BASELINE_COVERAGE.md](BASELINE_COVERAGE.md)**: Baseline coverage tracking explanation
 - **[GITLAB_CI.md](GITLAB_CI.md)**: Complete GitLab CI integration guide with security-friendly artifact distribution
 - **[ARTIFACT_DISTRIBUTION.md](ARTIFACT_DISTRIBUTION.md)**: Quick reference for artifact distribution options
 - **[COBERTURA.md](COBERTURA.md)**: Cobertura XML format support and usage guide
-- **[HOLISTIC_HEALTH.md](HOLISTIC_HEALTH.md)**: Holistic testing health analysis documentation
-- **[BASELINE_COVERAGE.md](BASELINE_COVERAGE.md)**: Baseline coverage tracking explanation
-- **[SECURITY.md](SECURITY.md)**: Security policy and best practices for enterprise use
+- **[BUILD.md](BUILD.md)**: Build instructions and version embedding
 - **[TESTING.md](TESTING.md)**: Testing guide and examples
 - **[DOGFOOD.md](DOGFOOD.md)**: Using Difftron on itself
+- **[SECURITY.md](SECURITY.md)**: Security policy and best practices for enterprise use
+- **[CI_TROUBLESHOOTING.md](CI_TROUBLESHOOTING.md)**: CI/CD troubleshooting guide
+- **[CHANGELOG.md](CHANGELOG.md)**: Version history and changes
 
 ### Next Steps:
 - Implement Risk Engine (git churn analysis) for v0.2

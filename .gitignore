@@ -1,5 +1,7 @@
 # Binaries
 bin/
+difftron
+difftron-*
 *.exe
 *.exe~
 *.dll
@@ -41,5 +43,12 @@ testdata/fixtures/*.html
 
 # Analysis outputs
 analysis.json
+analysis.md
+analysis.txt
 health-report.json
 health-report.md
+self-analysis.json
+
+# Build artifacts
+*.sum.bak
+vendor/

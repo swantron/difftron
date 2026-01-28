@@ -1,0 +1,118 @@
+# Difftron Quality Gate - Reusable GitLab CI Template
+#
+# Usage in your .gitlab-ci.yml:
+#   include:
+#     - local: '.gitlab-ci/difftron.yml'
+#
+#   difftron-analysis:
+#     extends: .difftron_template
+#     variables:
+#       DIFFTRON_THRESHOLD: "80"
+#       DIFFTRON_THRESHOLD_NEW: "90"
+#       DIFFTRON_THRESHOLD_MODIFIED: "75"
+#       DIFFTRON_USE_HEALTH: "true"
+#       DIFFTRON_UNIT_COVERAGE: "coverage.out"
+#       DIFFTRON_API_COVERAGE: "api-coverage.info"
+#       DIFFTRON_FUNCTIONAL_COVERAGE: "functional-coverage.info"
+
+.difftron_template:
+  image: golang:1.21
+  stage: test
+  before_script:
+    - go mod download
+    - go build -o bin/difftron ./cmd/difftron
+  script:
+    - |
+      # Set thresholds
+      THRESHOLD="${DIFFTRON_THRESHOLD:-80}"
+      THRESHOLD_NEW="${DIFFTRON_THRESHOLD_NEW:-$THRESHOLD}"
+      THRESHOLD_MODIFIED="${DIFFTRON_THRESHOLD_MODIFIED:-$THRESHOLD}"
+      
+      # Generate coverage if not provided
+      if [ -z "$DIFFTRON_UNIT_COVERAGE" ] && [ -z "$DIFFTRON_API_COVERAGE" ] && [ -z "$DIFFTRON_FUNCTIONAL_COVERAGE" ]; then
+        go test -coverprofile=coverage.out ./... || true
+        if [ ! -f coverage.out ] || [ ! -s coverage.out ]; then
+          echo "mode: set" > coverage.out
+        fi
+        DIFFTRON_UNIT_COVERAGE="coverage.out"
+      fi
+      
+      # Run difftron
+      if [ "${DIFFTRON_USE_HEALTH:-false}" == "true" ]; then
+        # Use health command
+        ARGS="health"
+        if [ -n "$DIFFTRON_UNIT_COVERAGE" ]; then
+          ARGS="$ARGS --unit-coverage $DIFFTRON_UNIT_COVERAGE"
+        fi
+        if [ -n "$DIFFTRON_API_COVERAGE" ]; then
+          ARGS="$ARGS --api-coverage $DIFFTRON_API_COVERAGE"
+        fi
+        if [ -n "$DIFFTRON_FUNCTIONAL_COVERAGE" ]; then
+          ARGS="$ARGS --functional-coverage $DIFFTRON_FUNCTIONAL_COVERAGE"
+        fi
+        ARGS="$ARGS --threshold $THRESHOLD"
+        ARGS="$ARGS --threshold-new $THRESHOLD_NEW"
+        ARGS="$ARGS --threshold-modified $THRESHOLD_MODIFIED"
+        ARGS="$ARGS --output ${DIFFTRON_OUTPUT_FORMAT:-json}"
+        if [ -n "$GITLAB_TOKEN" ] && [ -n "$CI_MERGE_REQUEST_IID" ]; then
+          ARGS="$ARGS --comment-mr"
+        fi
+        
+        ./bin/difftron $ARGS > analysis.${DIFFTRON_OUTPUT_FORMAT:-json} || EXIT_CODE=$?
+      else
+        # Use analyze command
+        COVERAGE_FILE="${DIFFTRON_UNIT_COVERAGE:-coverage.out}"
+        ./bin/difftron analyze \
+          --coverage "$COVERAGE_FILE" \
+          --threshold "$THRESHOLD" \
+          --threshold-new "$THRESHOLD_NEW" \
+          --threshold-modified "$THRESHOLD_MODIFIED" \
+          --output "${DIFFTRON_OUTPUT_FORMAT:-json}" > analysis.${DIFFTRON_OUTPUT_FORMAT:-json} || EXIT_CODE=$?
+      fi
+      
+      # Check results
+      if [ -f analysis.json ]; then
+        MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' analysis.json 2>/dev/null || echo "false")
+        if [ "$MEETS_THRESHOLD" != "true" ]; then
+          echo "❌ Coverage threshold not met!"
+          exit 1
+        fi
+      elif [ -n "${EXIT_CODE:-}" ] && [ "$EXIT_CODE" != "0" ]; then
+        echo "❌ Difftron analysis failed!"
+        exit 1
+      fi
+      
+      echo "✅ Coverage threshold met - gate passed!"
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.out
+    paths:
+      - analysis.*
+      - coverage.out
+    expire_in: 1 week
+  only:
+    - merge_requests
+    - main
+    - master
+  allow_failure: false
+
+# Example: Basic usage
+difftron-basic:
+  extends: .difftron_template
+  variables:
+    DIFFTRON_THRESHOLD: "80"
+
+# Example: Health command with multiple test types
+difftron-health:
+  extends: .difftron_template
+  variables:
+    DIFFTRON_USE_HEALTH: "true"
+    DIFFTRON_THRESHOLD: "80"
+    DIFFTRON_THRESHOLD_NEW: "90"
+    DIFFTRON_THRESHOLD_MODIFIED: "75"
+    DIFFTRON_UNIT_COVERAGE: "unit-coverage.out"
+    DIFFTRON_API_COVERAGE: "api-coverage.info"
+    DIFFTRON_FUNCTIONAL_COVERAGE: "functional-coverage.info"
+    DIFFTRON_OUTPUT_FORMAT: "markdown"
