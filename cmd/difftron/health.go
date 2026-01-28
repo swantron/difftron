@@ -11,21 +11,21 @@ import (
 )
 
 var (
-	healthUnitCoverage        string
-	healthAPICoverage         string
-	healthFunctionalCoverage  string
-	healthBaselineUnitCoverage string
-	healthBaselineAPICoverage  string
+	healthUnitCoverage               string
+	healthAPICoverage                string
+	healthFunctionalCoverage         string
+	healthBaselineUnitCoverage       string
+	healthBaselineAPICoverage        string
 	healthBaselineFunctionalCoverage string
-	healthThreshold            float64
-	healthThresholdNew         float64
-	healthThresholdModified    float64
-	healthOutputFormat         string
-	healthOutputFile           string
-	healthBaseRef              string
-	healthHeadRef               string
-	healthCommentPR             bool
-	healthCommentMR              bool
+	healthThreshold                  float64
+	healthThresholdNew               float64
+	healthThresholdModified          float64
+	healthOutputFormat               string
+	healthOutputFile                 string
+	healthBaseRef                    string
+	healthHeadRef                    string
+	healthCommentPR                  bool
+	healthCommentMR                  bool
 )
 
 var healthCmd = &cobra.Command{
@@ -246,7 +246,6 @@ func loadCoverageReport(filePath string, testType health.TestType) (*health.Test
 		Source:         filePath,
 	}, nil
 }
-
 
 func postGitHubComment(report *health.HealthReport) error {
 	token := os.Getenv("GITHUB_TOKEN")

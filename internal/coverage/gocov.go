@@ -105,7 +105,8 @@ func ParseGoCoverage(coverageOutPath string) (*Report, error) {
 
 // parseGoCoverageText parses Go coverage.out text format (mode: set or mode: count)
 // Format: mode: set
-//         file:startLine.startCol,endLine.endCol count statements
+//
+//	file:startLine.startCol,endLine.endCol count statements
 func parseGoCoverageText(coverageOutPath string) (*Report, error) {
 	file, err := os.Open(coverageOutPath)
 	if err != nil {
@@ -239,7 +240,6 @@ func parseGoCoverageText(coverageOutPath string) (*Report, error) {
 
 	return report, nil
 }
-
 
 // normalizeGoFilePath normalizes Go file paths by removing module prefixes
 func normalizeGoFilePath(filePath string) string {

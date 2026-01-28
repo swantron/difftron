@@ -10,28 +10,28 @@ import (
 
 // AnalysisReport represents the JSON output structure for analyze command
 type AnalysisReport struct {
-	TotalChangedLines  int                      `json:"total_changed_lines"`
-	CoveredLines       int                      `json:"covered_lines"`
-	UncoveredLines     int                      `json:"uncovered_lines"`
-	CoveragePercentage float64                  `json:"coverage_percentage"`
-	MeetsThreshold     bool                     `json:"meets_threshold"`
-	Threshold          float64                  `json:"threshold,omitempty"`
-	Files              map[string]*FileReport    `json:"files"`
-	NewFiles           *FileTypeReport          `json:"new_files,omitempty"`
-	ModifiedFiles      *FileTypeReport          `json:"modified_files,omitempty"`
+	TotalChangedLines  int                    `json:"total_changed_lines"`
+	CoveredLines       int                    `json:"covered_lines"`
+	UncoveredLines     int                    `json:"uncovered_lines"`
+	CoveragePercentage float64                `json:"coverage_percentage"`
+	MeetsThreshold     bool                   `json:"meets_threshold"`
+	Threshold          float64                `json:"threshold,omitempty"`
+	Files              map[string]*FileReport `json:"files"`
+	NewFiles           *FileTypeReport        `json:"new_files,omitempty"`
+	ModifiedFiles      *FileTypeReport        `json:"modified_files,omitempty"`
 }
 
 // FileReport represents file-level analysis results
 type FileReport struct {
-	FilePath             string   `json:"file_path"`
-	CoveragePercentage   float64  `json:"coverage_percentage"`
-	CoveredLines         int      `json:"covered_lines"`
-	UncoveredLines       int      `json:"uncovered_lines"`
-	TotalChangedLines    int      `json:"total_changed_lines"`
-	UncoveredLineNumbers []int    `json:"uncovered_line_numbers"`
-	CoveredLineNumbers   []int    `json:"covered_line_numbers,omitempty"`
-	IsNewFile            bool     `json:"is_new_file"`
-	BaselineCoverage     float64  `json:"baseline_coverage,omitempty"`
+	FilePath             string  `json:"file_path"`
+	CoveragePercentage   float64 `json:"coverage_percentage"`
+	CoveredLines         int     `json:"covered_lines"`
+	UncoveredLines       int     `json:"uncovered_lines"`
+	TotalChangedLines    int     `json:"total_changed_lines"`
+	UncoveredLineNumbers []int   `json:"uncovered_line_numbers"`
+	CoveredLineNumbers   []int   `json:"covered_line_numbers,omitempty"`
+	IsNewFile            bool    `json:"is_new_file"`
+	BaselineCoverage     float64 `json:"baseline_coverage,omitempty"`
 }
 
 // FileTypeReport represents metrics for new or modified files
