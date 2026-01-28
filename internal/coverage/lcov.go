@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // CoverageData represents coverage information for a file
@@ -130,12 +133,97 @@ func (r *Report) IsLineCovered(filePath string, lineNum int) bool {
 	return r.GetCoverageForLine(filePath, lineNum) > 0
 }
 
+var (
+	repoRootCache     string
+	repoRootCacheOnce sync.Once
+)
+
+// getRepoRoot detects the git repository root directory
+func getRepoRoot() string {
+	repoRootCacheOnce.Do(func() {
+		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		output, err := cmd.Output()
+		if err == nil {
+			repoRootCache = strings.TrimSpace(string(output))
+		}
+	})
+	return repoRootCache
+}
+
 // NormalizePath attempts to normalize file paths for comparison
 // This helps match git diff paths with LCOV file paths
+// It handles:
+// - Windows/Unix path separators (using filepath.ToSlash)
+// - Absolute vs relative paths
+// - Repo root rebasing
+// - Leading "./" and "/" prefixes
 func NormalizePath(path string) string {
+	if path == "" {
+		return path
+	}
+
+	// Convert to forward slashes for cross-platform consistency
+	normalized := filepath.ToSlash(path)
+
 	// Remove leading "./" if present
-	path = strings.TrimPrefix(path, "./")
-	// Remove leading "/" if present (for absolute paths that should be relative)
-	path = strings.TrimPrefix(path, "/")
-	return path
+	normalized = strings.TrimPrefix(normalized, "./")
+
+	// Try to rebase relative to repo root if it's an absolute path
+	if filepath.IsAbs(path) {
+		repoRoot := getRepoRoot()
+		if repoRoot != "" {
+			repoRootSlash := filepath.ToSlash(repoRoot)
+			if strings.HasPrefix(normalized, repoRootSlash+"/") {
+				normalized = strings.TrimPrefix(normalized, repoRootSlash+"/")
+			} else if normalized == repoRootSlash {
+				normalized = ""
+			} else {
+				// Absolute path outside repo root - remove leading "/"
+				normalized = strings.TrimPrefix(normalized, "/")
+			}
+		} else {
+			// If we can't detect repo root, just remove leading "/"
+			normalized = strings.TrimPrefix(normalized, "/")
+		}
+	} else {
+		// Remove leading "/" if present (for relative paths that start with /)
+		normalized = strings.TrimPrefix(normalized, "/")
+	}
+
+	return normalized
+}
+
+// FindMatchingPath attempts to find a matching path in the coverage report
+// by trying multiple normalization strategies
+func FindMatchingPath(targetPath string, availablePaths map[string]*CoverageData) string {
+	// Strategy 1: Exact match
+	if _, exists := availablePaths[targetPath]; exists {
+		return targetPath
+	}
+
+	// Strategy 2: Normalized match
+	normalized := NormalizePath(targetPath)
+	if normalized != targetPath {
+		if _, exists := availablePaths[normalized]; exists {
+			return normalized
+		}
+	}
+
+	// Strategy 3: Try all available paths with normalization
+	for availablePath := range availablePaths {
+		if NormalizePath(availablePath) == normalized {
+			return availablePath
+		}
+	}
+
+	// Strategy 4: Stem-only match (filename only) as last resort
+	stem := filepath.Base(targetPath)
+	for availablePath := range availablePaths {
+		if filepath.Base(availablePath) == stem {
+			return availablePath
+		}
+	}
+
+	// No match found
+	return ""
 }

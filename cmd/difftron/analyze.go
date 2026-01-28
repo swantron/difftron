@@ -10,15 +10,18 @@ import (
 	"github.com/swantron/difftron/internal/analyzer"
 	"github.com/swantron/difftron/internal/coverage"
 	"github.com/swantron/difftron/internal/hunk"
+	"github.com/swantron/difftron/pkg/report"
 )
 
 var (
-	coverageFile string
-	diffFile     string
-	threshold    float64
-	outputFormat string
-	baseRef      string
-	headRef      string
+	coverageFile      string
+	diffFile          string
+	threshold         float64
+	thresholdNew      float64
+	thresholdModified float64
+	outputFormat      string
+	baseRef           string
+	headRef           string
 )
 
 var analyzeCmd = &cobra.Command{
@@ -32,8 +35,10 @@ uncovered lines in your changes.`,
 func init() {
 	analyzeCmd.Flags().StringVarP(&coverageFile, "coverage", "c", "", "Path to coverage file (LCOV format)")
 	analyzeCmd.Flags().StringVarP(&diffFile, "diff", "d", "", "Path to git diff file (optional, uses git diff if not provided)")
-	analyzeCmd.Flags().Float64VarP(&threshold, "threshold", "t", 80.0, "Coverage threshold percentage")
-	analyzeCmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format: text, json")
+	analyzeCmd.Flags().Float64VarP(&threshold, "threshold", "t", 80.0, "Coverage threshold percentage (applies to both new and modified files)")
+	analyzeCmd.Flags().Float64Var(&thresholdNew, "threshold-new", 0, "Coverage threshold for new files (defaults to threshold if not set)")
+	analyzeCmd.Flags().Float64Var(&thresholdModified, "threshold-modified", 0, "Coverage threshold for modified files (defaults to threshold if not set)")
+	analyzeCmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format: text, json, markdown")
 	analyzeCmd.Flags().StringVarP(&baseRef, "base", "b", "HEAD", "Base ref for git diff (default: HEAD)")
 	analyzeCmd.Flags().StringVarP(&headRef, "head", "", "HEAD", "Head ref for git diff (default: HEAD)")
 
@@ -123,14 +128,26 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to analyze: %w", err)
 	}
 
+	// Set thresholds (use main threshold if specific ones not set)
+	thresholdNew := thresholdNew
+	thresholdModified := thresholdModified
+	if thresholdNew == 0 {
+		thresholdNew = threshold
+	}
+	if thresholdModified == 0 {
+		thresholdModified = threshold
+	}
+
 	// Output results
 	switch outputFormat {
 	case "json":
-		return outputJSON(analysisResult)
+		return outputJSON(analysisResult, thresholdNew, thresholdModified)
+	case "markdown":
+		return outputMarkdown(analysisResult, thresholdNew, thresholdModified)
 	case "text":
-		return outputText(analysisResult)
+		return outputText(analysisResult, thresholdNew, thresholdModified)
 	default:
-		return fmt.Errorf("unsupported output format: %s", outputFormat)
+		return fmt.Errorf("unsupported output format: %s (supported: text, json, markdown)", outputFormat)
 	}
 }
 
@@ -159,7 +176,7 @@ func getGitDiff(base, head string) (string, error) {
 	return string(output), nil
 }
 
-func outputText(result *analyzer.AnalysisResult) error {
+func outputText(result *analyzer.AnalysisResult, thresholdNew, thresholdModified float64) error {
 	fmt.Println("Difftron Coverage Analysis")
 	fmt.Println("==========================")
 	fmt.Println()
@@ -175,12 +192,45 @@ func outputText(result *analyzer.AnalysisResult) error {
 		result.TotalChangedLines)
 	fmt.Println()
 
-	// Check threshold
-	meetsThreshold := result.MeetsThreshold(threshold)
-	if meetsThreshold {
-		fmt.Printf("✓ Coverage threshold met (%.1f%% >= %.1f%%)\n", result.CoveragePercentage, threshold)
+	// Show new vs modified breakdown if available
+	if result.NewFileMetrics != nil && result.NewFileMetrics.FileCount > 0 {
+		fmt.Printf("New Files Coverage: %.1f%% (%d files, %d/%d lines covered)\n",
+			result.NewFileMetrics.CoveragePercentage,
+			result.NewFileMetrics.FileCount,
+			result.NewFileMetrics.CoveredLines,
+			result.NewFileMetrics.TotalChangedLines)
+	}
+	if result.ModifiedFileMetrics != nil && result.ModifiedFileMetrics.FileCount > 0 {
+		fmt.Printf("Modified Files Coverage: %.1f%% (%d files, %d/%d lines covered)\n",
+			result.ModifiedFileMetrics.CoveragePercentage,
+			result.ModifiedFileMetrics.FileCount,
+			result.ModifiedFileMetrics.CoveredLines,
+			result.ModifiedFileMetrics.TotalChangedLines)
+	}
+	fmt.Println()
+
+	// Check thresholds
+	meetsThresholds := result.MeetsThresholds(thresholdNew, thresholdModified)
+	if meetsThresholds {
+		fmt.Printf("✓ Coverage thresholds met\n")
+		if thresholdNew != thresholdModified {
+			fmt.Printf("  New files: %.1f%% >= %.1f%%\n", result.NewFileMetrics.CoveragePercentage, thresholdNew)
+			fmt.Printf("  Modified files: %.1f%% >= %.1f%%\n", result.ModifiedFileMetrics.CoveragePercentage, thresholdModified)
+		} else {
+			fmt.Printf("  Overall: %.1f%% >= %.1f%%\n", result.CoveragePercentage, threshold)
+		}
 	} else {
-		fmt.Printf("✗ Coverage threshold not met (%.1f%% < %.1f%%)\n", result.CoveragePercentage, threshold)
+		fmt.Printf("✗ Coverage thresholds not met\n")
+		if result.NewFileMetrics != nil && result.NewFileMetrics.TotalChangedLines > 0 {
+			if result.NewFileMetrics.CoveragePercentage < thresholdNew {
+				fmt.Printf("  New files: %.1f%% < %.1f%%\n", result.NewFileMetrics.CoveragePercentage, thresholdNew)
+			}
+		}
+		if result.ModifiedFileMetrics != nil && result.ModifiedFileMetrics.TotalChangedLines > 0 {
+			if result.ModifiedFileMetrics.CoveragePercentage < thresholdModified {
+				fmt.Printf("  Modified files: %.1f%% < %.1f%%\n", result.ModifiedFileMetrics.CoveragePercentage, thresholdModified)
+			}
+		}
 	}
 	fmt.Println()
 
@@ -200,51 +250,51 @@ func outputText(result *analyzer.AnalysisResult) error {
 	}
 
 	// Exit with error if threshold not met
-	if !meetsThreshold {
+	if !meetsThresholds {
 		os.Exit(1)
 	}
 
 	return nil
 }
 
-func outputJSON(result *analyzer.AnalysisResult) error {
-	// Simple JSON output (can be enhanced with proper JSON marshaling)
-	fmt.Printf(`{
-  "total_changed_lines": %d,
-  "covered_lines": %d,
-  "uncovered_lines": %d,
-  "coverage_percentage": %.2f,
-  "meets_threshold": %t,
-  "files": {
-`,
-		result.TotalChangedLines,
-		result.CoveredLines,
-		result.UncoveredLines,
-		result.CoveragePercentage,
-		result.MeetsThreshold(threshold))
-
-	first := true
-	for filePath, fileResult := range result.FileResults {
-		if !first {
-			fmt.Print(",\n")
-		}
-		first = false
-		fmt.Printf(`    "%s": {
-      "coverage_percentage": %.2f,
-      "covered_lines": %d,
-      "uncovered_lines": %d,
-      "uncovered_line_numbers": %v
-    }`,
-			filePath,
-			fileResult.CoveragePercentage,
-			fileResult.CoveredLines,
-			fileResult.UncoveredLines,
-			fileResult.UncoveredLineNumbers)
+func outputJSON(result *analyzer.AnalysisResult, thresholdNew, thresholdModified float64) error {
+	// Use the higher threshold for JSON output (for backward compatibility)
+	thresholdForJSON := threshold
+	if thresholdNew > threshold {
+		thresholdForJSON = thresholdNew
+	}
+	if thresholdModified > thresholdForJSON {
+		thresholdForJSON = thresholdModified
 	}
 
-	fmt.Println("\n  }\n}")
+	jsonOutput, err := report.ToJSON(result, thresholdForJSON)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
 
-	if !result.MeetsThreshold(threshold) {
+	fmt.Println(string(jsonOutput))
+
+	if !result.MeetsThresholds(thresholdNew, thresholdModified) {
+		os.Exit(1)
+	}
+
+	return nil
+}
+
+func outputMarkdown(result *analyzer.AnalysisResult, thresholdNew, thresholdModified float64) error {
+	// Use the higher threshold for markdown output
+	thresholdForMarkdown := threshold
+	if thresholdNew > threshold {
+		thresholdForMarkdown = thresholdNew
+	}
+	if thresholdModified > thresholdForMarkdown {
+		thresholdForMarkdown = thresholdModified
+	}
+
+	markdownOutput := report.ToMarkdown(result, thresholdForMarkdown)
+	fmt.Print(markdownOutput)
+
+	if !result.MeetsThresholds(thresholdNew, thresholdModified) {
 		os.Exit(1)
 	}
 

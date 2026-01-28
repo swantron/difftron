@@ -301,7 +301,24 @@ difftron health \
   --api-coverage api-coverage.info \
   --functional-coverage functional-coverage.info \
   --threshold 80 \
+  --threshold-new 90 \
+  --threshold-modified 75 \
   --output json > health-report.json
+
+# With baseline comparison
+difftron health \
+  --unit-coverage unit-coverage.out \
+  --baseline-unit-coverage baseline-coverage.out \
+  --threshold 80 \
+  --output markdown
+
+# Post comment on PR/MR
+difftron health \
+  --unit-coverage unit-coverage.out \
+  --threshold 80 \
+  --comment-pr  # For GitHub PRs
+  # or
+  --comment-mr  # For GitLab MRs
 ```
 
 ---
@@ -498,8 +515,15 @@ git diff main...feature-branch | difftron analyze --coverage coverage.info
 # Set coverage threshold
 difftron analyze --coverage coverage.xml --threshold 80
 
-# Generate JSON report
+# Separate thresholds for new vs modified files
+difftron analyze --coverage coverage.xml \
+  --threshold 80 \
+  --threshold-new 90 \
+  --threshold-modified 75
+
+# Generate JSON or Markdown report
 difftron analyze --coverage coverage.xml --output json > report.json
+difftron analyze --coverage coverage.xml --output markdown > report.md
 ```
 
 ---
@@ -520,15 +544,19 @@ difftron analyze --coverage coverage.xml --output json > report.json
 ### Implemented Features:
 - Git diff parsing (Hunk Engine) with new/modified file detection
 - **Multiple coverage formats**: LCOV, Cobertura XML, and Go coverage format support
+- **Line-by-line Go coverage parsing**: Parses `.out` files directly (mode: set/count) for accurate coverage
 - Core analysis engine (intersects diffs with coverage)
 - Baseline coverage tracking to prevent false positives
 - Holistic health analysis with multi-test-type aggregation
-- CLI interface with `analyze` and `ci` commands
+- CLI interface with `analyze`, `ci`, and `health` commands
 - Text, JSON, and Markdown output formats
+- **Separate thresholds**: Different thresholds for new vs modified files
+- **Enhanced path normalization**: Cross-platform support with repo-root rebasing
 - Coverage threshold checking
 - Comprehensive test coverage (91%+)
 - Dogfooding support (analyze your own code)
-- GitLab CI integration with security-friendly artifact distribution
+- GitHub Actions and GitLab CI templates
+- PR/MR commenter support (GitHub/GitLab)
 
 ### New in Recent Updates:
 - **Baseline Coverage Tracking**: Compares current coverage against baseline to detect regressions

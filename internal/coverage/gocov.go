@@ -1,10 +1,12 @@
 package coverage
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -88,9 +90,180 @@ func ConvertGoCoverageToLCOV(coverageOutPath, outputPath string) error {
 }
 
 // ParseGoCoverage parses Go's native coverage.out format directly
-// This is more accurate than converting to LCOV
+// Supports both text format (mode: set/count) and binary format
+// For text format, parses line-by-line coverage ranges
 func ParseGoCoverage(coverageOutPath string) (*Report, error) {
-	// Use go tool cover to get line-by-line coverage
+	// Try to parse as text format first
+	report, err := parseGoCoverageText(coverageOutPath)
+	if err == nil {
+		return report, nil
+	}
+
+	// If text parsing fails, fall back to function-level parsing via go tool cover
+	return parseGoCoverageFunc(coverageOutPath)
+}
+
+// parseGoCoverageText parses Go coverage.out text format (mode: set or mode: count)
+// Format: mode: set
+//         file:startLine.startCol,endLine.endCol count statements
+func parseGoCoverageText(coverageOutPath string) (*Report, error) {
+	file, err := os.Open(coverageOutPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open coverage file: %w", err)
+	}
+	defer file.Close()
+
+	report := &Report{
+		FileCoverage: make(map[string]*CoverageData),
+	}
+
+	scanner := bufio.NewScanner(file)
+	var mode string
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+
+		// Parse mode line: "mode: set" or "mode: count"
+		if strings.HasPrefix(line, "mode:") {
+			mode = strings.TrimSpace(strings.TrimPrefix(line, "mode:"))
+			continue
+		}
+
+		// Parse coverage line: file:startLine.startCol,endLine.endCol count statements
+		// Example: github.com/swantron/difftron/internal/hunk/parser.go:42.0,43.0 1 0
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		// Parse file and line range
+		fileAndRange := parts[0]
+		colonIdx := strings.LastIndex(fileAndRange, ":")
+		if colonIdx == -1 {
+			continue
+		}
+
+		filePath := fileAndRange[:colonIdx]
+		rangeStr := fileAndRange[colonIdx+1:]
+
+		// Parse range: startLine.startCol,endLine.endCol
+		commaIdx := strings.Index(rangeStr, ",")
+		if commaIdx == -1 {
+			continue
+		}
+
+		startStr := rangeStr[:commaIdx]
+		endStr := rangeStr[commaIdx+1:]
+
+		// Extract line numbers (ignore column numbers)
+		startDotIdx := strings.Index(startStr, ".")
+		if startDotIdx != -1 {
+			startStr = startStr[:startDotIdx]
+		}
+		endDotIdx := strings.Index(endStr, ".")
+		if endDotIdx != -1 {
+			endStr = endStr[:endDotIdx]
+		}
+
+		startLine, err := strconv.Atoi(startStr)
+		if err != nil {
+			continue
+		}
+		endLine, err := strconv.Atoi(endStr)
+		if err != nil {
+			continue
+		}
+
+		// Parse count (number of times this range was executed)
+		count, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+
+		// Normalize file path (remove module prefix)
+		filePath = normalizeGoFilePath(filePath)
+
+		// Get or create file coverage
+		fileCoverage := report.FileCoverage[filePath]
+		if fileCoverage == nil {
+			fileCoverage = &CoverageData{
+				LineHits: make(map[int]int),
+			}
+			report.FileCoverage[filePath] = fileCoverage
+		}
+
+		// Mark lines in range as covered (if count > 0)
+		// For mode: set, count is 0 or 1
+		// For mode: count, count is the actual execution count
+		for line := startLine; line <= endLine; line++ {
+			// Track if this line was already seen (for TotalLines counting)
+			wasAlreadySeen := fileCoverage.LineHits[line] > 0
+
+			if count > 0 {
+				// Update hit count (take maximum if already set, or sum for count mode)
+				if existingCount, exists := fileCoverage.LineHits[line]; exists {
+					// If mode is count, we might want to sum, but typically we take max
+					// For now, take maximum to avoid double counting
+					if count > existingCount {
+						fileCoverage.LineHits[line] = count
+					}
+				} else {
+					fileCoverage.LineHits[line] = count
+					// New line covered
+					fileCoverage.CoveredLines++
+				}
+			}
+
+			// Count total lines (only once per line)
+			if !wasAlreadySeen {
+				fileCoverage.TotalLines++
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading coverage file: %w", err)
+	}
+
+	// If we didn't see a mode line, this might not be a text format file
+	if mode == "" && len(report.FileCoverage) == 0 {
+		return nil, fmt.Errorf("not a valid Go coverage text format (no mode line found)")
+	}
+
+	return report, nil
+}
+
+
+// normalizeGoFilePath normalizes Go file paths by removing module prefixes
+func normalizeGoFilePath(filePath string) string {
+	// Convert Windows paths to forward slashes
+	filePath = filepath.ToSlash(filePath)
+
+	// Try to detect and remove common module prefixes
+	// This is a heuristic - actual module path detection would require go.mod parsing
+	commonPrefixes := []string{
+		"github.com/swantron/difftron/",
+		"github.com\\swantron\\difftron\\",
+	}
+
+	for _, prefix := range commonPrefixes {
+		if strings.HasPrefix(filePath, prefix) {
+			return strings.TrimPrefix(filePath, prefix)
+		}
+	}
+
+	return filePath
+}
+
+// parseGoCoverageFunc parses Go coverage using go tool cover -func (function-level fallback)
+func parseGoCoverageFunc(coverageOutPath string) (*Report, error) {
 	cmd := exec.Command("go", "tool", "cover", "-func="+coverageOutPath)
 	output, err := cmd.Output()
 	if err != nil {
@@ -112,16 +285,13 @@ func ParseGoCoverage(coverageOutPath string) (*Report, error) {
 		}
 
 		// Parse: github.com/swantron/difftron/internal/hunk/parser.go:42:	ParseGitDiff	100.0%
-		// Extract file path and line number
 		colonIdx := strings.Index(line, ":")
 		if colonIdx == -1 {
 			continue
 		}
 
 		filePath := line[:colonIdx]
-		// Normalize file path
-		filePath = strings.TrimPrefix(filePath, "github.com/swantron/difftron/")
-		filePath = strings.TrimPrefix(filePath, "github.com\\swantron\\difftron\\")
+		filePath = normalizeGoFilePath(filePath)
 
 		// Extract line number
 		rest := line[colonIdx+1:]
@@ -153,8 +323,7 @@ func ParseGoCoverage(coverageOutPath string) (*Report, error) {
 		}
 
 		// Mark line as covered if coverage > 0
-		// Note: This is function-level, not line-level
-		// For true line coverage, we'd need to parse the binary coverage.out format
+		// Note: This is function-level approximation
 		if coverage > 0 {
 			currentCoverage.LineHits[lineNum] = 1
 			currentCoverage.TotalLines++

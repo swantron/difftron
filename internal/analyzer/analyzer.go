@@ -125,30 +125,27 @@ func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *cov
 	}
 
 	// Try multiple path variations to match coverage data
-	normalizedPath := coverage.NormalizePath(filePath)
+	matchingPath := coverage.FindMatchingPath(filePath, coverageReport.FileCoverage)
 	var fileCoverage *coverage.CoverageData
 	var baselineFileCoverage *coverage.CoverageData
 
-	// Try exact match first
-	fileCoverage = coverageReport.GetCoverageForFile(filePath)
-	if fileCoverage == nil {
-		// Try normalized path
-		fileCoverage = coverageReport.GetCoverageForFile(normalizedPath)
+	if matchingPath != "" {
+		fileCoverage = coverageReport.GetCoverageForFile(matchingPath)
 	}
 
 	// Get baseline coverage for modified files
 	if !isNewFile && baselineReport != nil {
-		baselineFileCoverage = baselineReport.GetCoverageForFile(filePath)
-		if baselineFileCoverage == nil {
-			baselineFileCoverage = baselineReport.GetCoverageForFile(normalizedPath)
+		baselineMatchingPath := coverage.FindMatchingPath(filePath, baselineReport.FileCoverage)
+		if baselineMatchingPath != "" {
+			baselineFileCoverage = baselineReport.GetCoverageForFile(baselineMatchingPath)
 		}
 
 		// Calculate baseline coverage percentage for the changed lines
-		if baselineFileCoverage != nil {
+		if baselineFileCoverage != nil && baselineMatchingPath != "" {
 			baselineCovered := 0
 			baselineTotal := len(changedLines)
 			for lineNum := range changedLines {
-				if baselineReport.IsLineCovered(filePath, lineNum) || baselineReport.IsLineCovered(normalizedPath, lineNum) {
+				if baselineReport.IsLineCovered(baselineMatchingPath, lineNum) {
 					baselineCovered++
 				}
 			}
@@ -163,12 +160,8 @@ func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *cov
 		fileResult.TotalChangedLines++
 
 		var isCovered bool
-		if fileCoverage != nil {
-			isCovered = coverageReport.IsLineCovered(filePath, lineNum)
-			if !isCovered {
-				// Try normalized path
-				isCovered = coverageReport.IsLineCovered(normalizedPath, lineNum)
-			}
+		if fileCoverage != nil && matchingPath != "" {
+			isCovered = coverageReport.IsLineCovered(matchingPath, lineNum)
 		}
 
 		if isCovered {
@@ -191,6 +184,25 @@ func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *cov
 // MeetsThreshold checks if the analysis result meets the specified coverage threshold
 func (r *AnalysisResult) MeetsThreshold(threshold float64) bool {
 	return r.CoveragePercentage >= threshold
+}
+
+// MeetsThresholds checks if the analysis result meets separate thresholds for new and modified files
+func (r *AnalysisResult) MeetsThresholds(thresholdNew, thresholdModified float64) bool {
+	// Check new files threshold
+	if r.NewFileMetrics != nil && r.NewFileMetrics.TotalChangedLines > 0 {
+		if r.NewFileMetrics.CoveragePercentage < thresholdNew {
+			return false
+		}
+	}
+
+	// Check modified files threshold
+	if r.ModifiedFileMetrics != nil && r.ModifiedFileMetrics.TotalChangedLines > 0 {
+		if r.ModifiedFileMetrics.CoveragePercentage < thresholdModified {
+			return false
+		}
+	}
+
+	return true
 }
 
 // HasUncoveredLines returns true if there are any uncovered lines
