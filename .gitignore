@@ -23,7 +23,8 @@ go.work
 
 # IDE
 .idea/
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
 *.swp
 *.swo
 *~

@@ -26,7 +26,7 @@ func TestOutputText(t *testing.T) {
 	threshold = 80.0
 
 	// This will exit with code 0 since threshold is met
-	err := outputText(result)
+	err := outputText(result, threshold, threshold)
 	if err != nil {
 		t.Errorf("outputText() error = %v", err)
 	}
@@ -50,7 +50,7 @@ func TestOutputTextNoChanges(t *testing.T) {
 
 	threshold = 80.0
 
-	err := outputText(result)
+	err := outputText(result, threshold, threshold)
 	if err != nil {
 		t.Errorf("outputText() error = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestOutputJSON(t *testing.T) {
 
 	threshold = 80.0
 
-	err := outputJSON(result)
+	err := outputJSON(result, threshold, threshold)
 	if err != nil {
 		t.Errorf("outputJSON() error = %v", err)
 	}
