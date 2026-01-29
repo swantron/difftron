@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -270,6 +271,14 @@ func outputJSON(result *analyzer.AnalysisResult, thresholdNew, thresholdModified
 	jsonOutput, err := report.ToJSON(result, thresholdForJSON)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	// Parse JSON and update meets_threshold to use the correct check
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal(jsonOutput, &jsonData); err == nil {
+		// Use MeetsThresholds for the actual check, not MeetsThreshold
+		jsonData["meets_threshold"] = result.MeetsThresholds(thresholdNew, thresholdModified)
+		jsonOutput, _ = json.MarshalIndent(jsonData, "", "  ")
 	}
 
 	fmt.Println(string(jsonOutput))

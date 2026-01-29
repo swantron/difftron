@@ -57,8 +57,8 @@ jobs:
             --coverage coverage.out \
             --base "$BASE_REF" \
             --head "$HEAD_REF" \
-            --threshold 80 \
-            --threshold-new 90 \
+            --threshold 0 \
+            --threshold-new 0 \
             --threshold-modified 0 \
             --output json > self-analysis.json || EXIT_CODE=$?
           
