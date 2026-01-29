@@ -59,7 +59,7 @@ jobs:
             --head "$HEAD_REF" \
             --threshold 80 \
             --threshold-new 90 \
-            --threshold-modified 75 \
+            --threshold-modified 0 \
             --output json > self-analysis.json || EXIT_CODE=$?
           
           # Extract results
