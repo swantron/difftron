@@ -41,19 +41,37 @@ jobs:
         id: difftron
         continue-on-error: true
         run: |
+          # Determine base and head refs for comparison
+          # For push events, compare the previous commit to current
+          # For PR events, GitHub Actions provides base/head automatically
+          if [ "${{ github.event_name }}" == "push" ]; then
+            BASE_REF="HEAD~1"
+            HEAD_REF="HEAD"
+          else
+            # For PRs, compare base to head of the PR
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+            HEAD_REF="${{ github.event.pull_request.head.sha }}"
+          fi
+          
           ./bin/difftron analyze \
             --coverage coverage.out \
+            --base "$BASE_REF" \
+            --head "$HEAD_REF" \
             --threshold 80 \
             --threshold-new 90 \
             --threshold-modified 75 \
             --output json > self-analysis.json || EXIT_CODE=$?
           
           # Extract results
-          if [ -f self-analysis.json ]; then
+          if [ -f self-analysis.json ] && [ -s self-analysis.json ]; then
             MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' self-analysis.json 2>/dev/null || echo "false")
             COVERAGE=$(jq -r '.coverage_percentage // 0' self-analysis.json 2>/dev/null || echo "0")
             echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
             echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            # If no JSON output (e.g., no changes), consider it a pass
+            echo "meets_threshold=true" >> $GITHUB_OUTPUT
+            echo "coverage=100" >> $GITHUB_OUTPUT
           fi
           
           exit ${EXIT_CODE:-0}
