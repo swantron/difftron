@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload self-analysis
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: difftron-self-analysis
           path: |
