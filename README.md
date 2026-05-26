@@ -139,7 +139,7 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.23 or later
 - Git (for testing git diff functionality)
 
 ### Setup
@@ -483,19 +483,12 @@ difftron/
 │   ├── analyzer/
 │   │   ├── analyzer.go          # Core analysis logic
 │   │   └── analyzer_test.go
-│   ├── churn/
-│   │   ├── churn.go             # Git churn calculation (v0.2)
-│   │   └── churn_test.go
-│   ├── risk/
-│   │   ├── scorer.go            # Risk scoring (v0.2)
-│   │   └── scorer_test.go
-│   └── ai/
-│       ├── gemini.go            # Gemini integration (v0.4)
-│       └── generator.go         # Test generation (v0.4)
+│   ├── churn/                   # Git churn calculation (v0.2, planned)
+│   ├── risk/                    # Risk scoring (v0.2, planned)
+│   └── ai/                      # Gemini integration (v0.4, planned)
 ├── pkg/
 │   └── report/
-│       ├── formatter.go         # Report formatting
-│       └── markdown.go          # Markdown generation
+│       └── formatter.go         # Report formatting
 ├── scripts/
 │   ├── task.go                  # Go-based task runner
 │   ├── dogfood.sh               # Dogfooding script

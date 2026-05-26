@@ -74,7 +74,7 @@ func ParseLCOV(filePath string) (*Report, error) {
 		if strings.HasPrefix(line, "DA:") {
 			data := strings.TrimPrefix(line, "DA:")
 			parts := strings.Split(data, ",")
-			if len(parts) != 2 {
+			if len(parts) < 2 {
 				continue
 			}
 

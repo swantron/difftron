@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/swantron/difftron/internal/coverage"
@@ -256,11 +257,13 @@ func postGitHubComment(report *health.HealthReport) error {
 	// Get PR number from environment
 	prNumber := os.Getenv("GITHUB_PR_NUMBER")
 	if prNumber == "" {
-		// Try to extract from GITHUB_REF
+		// Try to extract from GITHUB_REF (format: refs/pull/123/merge)
 		ref := os.Getenv("GITHUB_REF")
-		if ref != "" {
-			// GITHUB_REF format: refs/pull/:prNumber/merge
-			// Extract PR number
+		if strings.HasPrefix(ref, "refs/pull/") {
+			parts := strings.Split(ref, "/")
+			if len(parts) >= 3 {
+				prNumber = parts[2]
+			}
 		}
 		if prNumber == "" {
 			return fmt.Errorf("could not determine PR number (set GITHUB_PR_NUMBER)")
