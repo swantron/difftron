@@ -1,5 +1,9 @@
 name: Dogfood Difftron
 
+# Runs the difftron Action (action.yml) against difftron's own changes.
+# This is the real dogfood: `uses: ./` exercises the published composite Action,
+# so a regression in action.yml shows up here before anyone else hits it.
+
 on:
   pull_request:
     branches: [main]
@@ -8,131 +12,33 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   dogfood:
     name: Run Difftron on Difftron
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # full history so the Action can diff against the base
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
 
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Build difftron
-        run: go build -o bin/difftron ./cmd/difftron
-
-      - name: Run tests with coverage
+      - name: Test with coverage
         run: go test -coverprofile=coverage.out ./...
 
-      - name: Run difftron analyze on itself
-        id: difftron
-        continue-on-error: true
-        run: |
-          # Determine base and head refs for comparison
-          # For push events, compare the previous commit to current
-          # For PR events, GitHub Actions provides base/head automatically
-          if [ "${{ github.event_name }}" == "push" ]; then
-            BASE_REF="HEAD~1"
-            HEAD_REF="HEAD"
-          else
-            # For PRs, compare base to head of the PR
-            BASE_REF="${{ github.event.pull_request.base.sha }}"
-            HEAD_REF="${{ github.event.pull_request.head.sha }}"
-          fi
-          
-          ./bin/difftron analyze \
-            --coverage coverage.out \
-            --base "$BASE_REF" \
-            --head "$HEAD_REF" \
-            --threshold 0 \
-            --threshold-new 0 \
-            --threshold-modified 0 \
-            --output json > self-analysis.json || EXIT_CODE=$?
-          
-          # Extract results
-          if [ -f self-analysis.json ] && [ -s self-analysis.json ]; then
-            MEETS_THRESHOLD=$(jq -r '.meets_threshold // false' self-analysis.json 2>/dev/null || echo "false")
-            COVERAGE=$(jq -r '.coverage_percentage // 0' self-analysis.json 2>/dev/null || echo "0")
-            echo "meets_threshold=$MEETS_THRESHOLD" >> $GITHUB_OUTPUT
-            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          else
-            # If no JSON output (e.g., no changes), consider it a pass
-            echo "meets_threshold=true" >> $GITHUB_OUTPUT
-            echo "coverage=100" >> $GITHUB_OUTPUT
-          fi
-          
-          exit ${EXIT_CODE:-0}
-
-      - name: Upload self-analysis
-        if: always()
-        uses: actions/upload-artifact@v5
+      - name: Difftron delta coverage gate (self)
+        uses: ./
         with:
-          name: difftron-self-analysis
-          path: |
-            self-analysis.json
-            coverage.out
-
-      - name: Post PR comment
-        if: github.event_name == 'pull_request' && steps.difftron.outcome != 'skipped'
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            let comment = '## 🐕 Difftron Self-Analysis\n\n';
-            
-            if (fs.existsSync('self-analysis.json')) {
-              const analysis = JSON.parse(fs.readFileSync('self-analysis.json', 'utf8'));
-              const meetsThreshold = analysis.meets_threshold;
-              const coverage = analysis.coverage_percentage;
-              
-              comment += `**Coverage:** ${coverage.toFixed(1)}%\n`;
-              comment += `**Status:** ${meetsThreshold ? '✅ PASS' : '❌ FAIL'}\n\n`;
-              
-              if (analysis.files) {
-                comment += '### File Details\n\n';
-                comment += '| File | Coverage | Status |\n';
-                comment += '|------|----------|--------|\n';
-                
-                for (const [file, data] of Object.entries(analysis.files)) {
-                  const status = data.coverage_percentage >= 80 ? '✅' : '❌';
-                  comment += `| \`${file}\` | ${data.coverage_percentage.toFixed(1)}% | ${status} |\n`;
-                }
-              }
-            } else {
-              comment += '⚠️ Analysis file not found.\n';
-            }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-
-      - name: Gate merge
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
-        run: |
-          MEETS_THRESHOLD="${{ steps.difftron.outputs.meets_threshold }}"
-          if [ "$MEETS_THRESHOLD" != "true" ] && [ -n "$MEETS_THRESHOLD" ]; then
-            echo "❌ Difftron self-analysis failed - coverage threshold not met!"
-            exit 1
-          elif [ "${{ steps.difftron.outcome }}" == "failure" ]; then
-            echo "❌ Difftron self-analysis failed!"
-            exit 1
-          else
-            echo "✅ Difftron self-analysis passed - gate passed!"
-          fi
+          coverage: coverage.out
+          threshold: '80'
+          comment-pr: 'true'
+          # Report-only for now: posts the sticky comment without blocking merges.
+          # Flip to 'true' once difftron's own changed-line coverage is where you want it.
+          fail-on-error: 'false'
