@@ -662,3 +662,4 @@ go run scripts/task.go dogfood
 - Enhanced GitLab MR comment integration
 
 ---
+
