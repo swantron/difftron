@@ -1,14 +1,10 @@
 package coverage
 
 import (
-	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestDetectCoverageFormat_LCOV(t *testing.T) {
@@ -317,36 +313,31 @@ func TestNormalizeGoFilePath_StripsDetectedModule(t *testing.T) {
 	}
 }
 
-// createRealGoCoverageFile creates a real Go coverage file by running tests
-// This is a helper function that generates actual coverage data
+// createRealGoCoverageFile writes a static, valid Go coverage profile that
+// references real source files in this module.
+//
+// It deliberately does NOT shell out to `go test`. This helper is called by
+// tests that live in the coverage package itself, so running `go test` on this
+// package would recursively re-run these very tests — each invocation spawning
+// two more `go test` processes, an exponential cascade that exhausts the system
+// process table and wedges every shell on the machine. A static fixture tests
+// the parser just as well without the subprocess.
 func createRealGoCoverageFile(t *testing.T) string {
-	// Run tests on the coverage package to generate a real coverage file
+	t.Helper()
 	tmpfile, err := os.CreateTemp("", "real-coverage-*.out")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	tmpfile.Close()
 
-	// Get the package directory
-	_, testFile, _, _ := runtime.Caller(1) // Caller(1) because we're called from test
-	pkgDir := filepath.Dir(testFile)
-
-	// Run go test with coverage with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "go", "test", "-coverprofile="+tmpfile.Name(), pkgDir)
-	if err := cmd.Run(); err != nil {
-		// If tests fail or timeout, create a minimal valid coverage file instead
-		// This allows tests to run even if go test fails
-		coverageContent := `mode: set
+	coverageContent := `mode: set
 github.com/swantron/difftron/internal/coverage/lcov.go:29.50,31.16 2 1
 github.com/swantron/difftron/internal/coverage/lcov.go:31.16,33.3 1 1
+github.com/swantron/difftron/internal/coverage/lcov.go:33.3,35.4 1 0
 `
-		if err := os.WriteFile(tmpfile.Name(), []byte(coverageContent), 0644); err != nil {
-			t.Fatalf("failed to write coverage file: %v", err)
-		}
+	if err := os.WriteFile(tmpfile.Name(), []byte(coverageContent), 0644); err != nil {
+		t.Fatalf("failed to write coverage file: %v", err)
 	}
+	tmpfile.Close()
 
 	return tmpfile.Name()
 }
