@@ -1,0 +1,158 @@
+name: 'Difftron Delta Coverage Gate'
+description: 'Fail the PR when new or changed lines are not tested. Language-agnostic delta coverage — LCOV, Cobertura, or Go coverage.'
+author: 'swantron'
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  coverage:
+    description: 'Path to the coverage report (LCOV, Cobertura XML, or Go coverage).'
+    required: true
+  threshold:
+    description: 'Minimum coverage percentage required on changed lines.'
+    required: false
+    default: '80'
+  threshold-new:
+    description: 'Override threshold for newly added files (defaults to `threshold`).'
+    required: false
+    default: ''
+  threshold-modified:
+    description: 'Override threshold for modified files (defaults to `threshold`).'
+    required: false
+    default: ''
+  base:
+    description: 'Base git ref for the diff. Auto-detected from the event when empty.'
+    required: false
+    default: ''
+  head:
+    description: 'Head git ref for the diff. Auto-detected from the event when empty.'
+    required: false
+    default: ''
+  comment-pr:
+    description: 'Post (and update) a sticky results comment on the pull request.'
+    required: false
+    default: 'true'
+  fail-on-error:
+    description: 'Fail the job when changed-line coverage is below threshold.'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to post the PR comment.'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  passed:
+    description: '"true" when changed-line coverage met the threshold, "false" otherwise.'
+    value: ${{ steps.gate.outputs.passed }}
+  report:
+    description: 'Path to the generated Markdown report.'
+    value: ${{ steps.gate.outputs.report }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache-dependency-path: ${{ github.action_path }}/go.sum
+
+    - name: Build difftron
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: go build -o "${RUNNER_TEMP}/difftron-bin" ./cmd/difftron
+
+    - name: Run delta coverage gate
+      id: gate
+      shell: bash
+      env:
+        INPUT_COVERAGE: ${{ inputs.coverage }}
+        INPUT_THRESHOLD: ${{ inputs.threshold }}
+        INPUT_THRESHOLD_NEW: ${{ inputs.threshold-new }}
+        INPUT_THRESHOLD_MODIFIED: ${{ inputs.threshold-modified }}
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_HEAD: ${{ inputs.head }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        PUSH_SHA: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+
+        # Resolve the diff range. Explicit inputs win; otherwise infer from the event.
+        BASE="${INPUT_BASE}"
+        HEAD="${INPUT_HEAD}"
+        if [ -z "${BASE}" ] || [ -z "${HEAD}" ]; then
+          case "${EVENT_NAME}" in
+            pull_request|pull_request_target)
+              BASE="${BASE:-$PR_BASE_SHA}"; HEAD="${HEAD:-$PR_HEAD_SHA}" ;;
+            push)
+              BASE="${BASE:-$PUSH_BEFORE}"; HEAD="${HEAD:-$PUSH_SHA}" ;;
+            *)
+              echo "::warning::Could not auto-detect base/head for event '${EVENT_NAME}'. Pass base/head explicitly." ;;
+          esac
+        fi
+
+        # Best-effort: make sure the base commit is present (shallow checkouts).
+        if [ -n "${BASE}" ] && ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+          git fetch --no-tags --depth=1 origin "${BASE}" 2>/dev/null || true
+        fi
+
+        EXTRA=()
+        [ -n "${INPUT_THRESHOLD_NEW}" ] && EXTRA+=(--threshold-new "${INPUT_THRESHOLD_NEW}")
+        [ -n "${INPUT_THRESHOLD_MODIFIED}" ] && EXTRA+=(--threshold-modified "${INPUT_THRESHOLD_MODIFIED}")
+        [ -n "${BASE}" ] && EXTRA+=(--base "${BASE}")
+        [ -n "${HEAD}" ] && EXTRA+=(--head "${HEAD}")
+
+        REPORT="${RUNNER_TEMP}/difftron-report.md"
+        set +e
+        "${RUNNER_TEMP}/difftron-bin" analyze \
+          --coverage "${INPUT_COVERAGE}" \
+          --threshold "${INPUT_THRESHOLD}" \
+          --output markdown \
+          "${EXTRA[@]}" | tee "${REPORT}"
+        CODE=${PIPESTATUS[0]}
+        set -e
+
+        echo "report=${REPORT}" >> "${GITHUB_OUTPUT}"
+        if [ "${CODE}" -eq 0 ]; then
+          echo "passed=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "passed=false" >> "${GITHUB_OUTPUT}"
+        fi
+        echo "DIFFTRON_EXIT=${CODE}" >> "${GITHUB_ENV}"
+
+    - name: Comment on pull request
+      if: ${{ inputs.comment-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- difftron-delta-coverage -->';
+          let body = marker + '\n## Difftron — delta coverage\n';
+          try {
+            body += fs.readFileSync(process.env.RUNNER_TEMP + '/difftron-report.md', 'utf8');
+          } catch (e) {
+            body += '_No report was produced._';
+          }
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+          const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+          const existing = comments.find(c => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+    - name: Enforce gate
+      shell: bash
+      run: |
+        if [ "${{ inputs.fail-on-error }}" = "true" ] && [ "${DIFFTRON_EXIT:-0}" != "0" ]; then
+          echo "::error::Changed-line coverage is below the configured threshold."
+          exit 1
+        fi

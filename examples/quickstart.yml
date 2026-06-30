@@ -1,0 +1,37 @@
+# Copy this into .github/workflows/quality-gate.yml in YOUR repo.
+# It runs your tests, produces a coverage file, then fails the PR if the
+# lines you changed aren't tested to the threshold — and posts a sticky comment.
+name: Quality Gate
+
+on:
+  pull_request:
+
+# Needed so Difftron can post/update the results comment on the PR.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  delta-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history is required to diff against the base branch
+
+      # --- Replace this block with however YOUR project emits coverage ---
+      # The only requirement is a coverage file in LCOV, Cobertura, or Go format.
+      #
+      # Node:   npx jest --coverage   ->  coverage/lcov.info
+      # Python: pytest --cov --cov-report=xml  ->  coverage.xml
+      # Go:     go test ./... -coverprofile=coverage.out
+      - name: Run tests with coverage
+        run: echo "run your tests here and emit a coverage file"
+      # -------------------------------------------------------------------
+
+      - name: Difftron delta coverage gate
+        uses: swantron/difftron@v1
+        with:
+          coverage: coverage/lcov.info
+          threshold: '80'
+          comment-pr: 'true'

@@ -1,6 +1,38 @@
 # Difftron
 
-**Difftron** is a language-agnostic, AI-powered "Quality Gate" CLI that provides comprehensive testing health analysis. It ensures that new code changes are adequately tested by correlating `git diff` hunks with standard coverage reports (LCOV, Cobertura, Go coverage, etc.).
+**Fail the PR when new code isn't tested — in any language, in a few lines of YAML.**
+
+Difftron is a language-agnostic delta-coverage gate. It correlates your `git diff` with a standard coverage report (LCOV, Cobertura, or Go) and holds **only the lines you changed** to a threshold — so testing debt can't slip in behind a project-wide coverage number that barely moves.
+
+## Quickstart (GitHub Action)
+
+Add this to `.github/workflows/quality-gate.yml`, pointing `coverage` at the file your test run produces:
+
+```yaml
+name: Quality Gate
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write # lets Difftron post a results comment
+jobs:
+  delta-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history needed to diff against the base branch
+      # ...run your tests and emit a coverage file (e.g. coverage/lcov.info)...
+      - uses: swantron/difftron@v1
+        with:
+          coverage: coverage/lcov.info
+          threshold: '80'
+```
+
+That's it: the PR fails if changed-line coverage drops below `threshold`, and a sticky comment shows exactly which new lines are untested. A full copy-paste example lives in [`examples/quickstart.yml`](examples/quickstart.yml).
+
+> Difftron is also a standalone CLI with `analyze`, `ci`, and `health` commands for richer multi-test-type aggregation, baseline tracking, and AI test-gap suggestions — see below.
+
+---
 
 Unlike traditional coverage tools that report on the entire project, **Difftron** zooms in on the **deltas**, ensuring that every new line of code is held to a high standard of quality before it hits production. It also provides a **holistic view** of testing health by aggregating coverage across multiple test types (unit, API, functional) and tracking baseline coverage to prevent false positives.
 
