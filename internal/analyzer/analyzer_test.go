@@ -113,11 +113,15 @@ end_of_record
 	}
 }
 
-func TestAnalyze_NoCoverage(t *testing.T) {
-	diffOutput := `diff --git a/file.go b/file.go
+// TestAnalyze_FileNotInCoverageReport verifies that a changed file with no entry
+// in the coverage report is skipped (not scored as 0% uncovered). difftron has no
+// coverage signal for such files — docs, config, or any file the coverage tool does
+// not track — so counting them would unfairly fail PRs that only touch them.
+func TestAnalyze_FileNotInCoverageReport(t *testing.T) {
+	diffOutput := `diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
 index 123..456 100644
---- a/file.go
-+++ b/file.go
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
 @@ -5,1 +5,2 @@
 +	new line
 `
@@ -127,7 +131,7 @@ index 123..456 100644
 		t.Fatalf("failed to parse diff: %v", err)
 	}
 
-	// Empty coverage report
+	// Empty coverage report: nothing the coverage tool measured.
 	coverageReport := &coverage.Report{
 		FileCoverage: make(map[string]*coverage.CoverageData),
 	}
@@ -137,12 +141,25 @@ index 123..456 100644
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.UncoveredLines != 1 {
-		t.Errorf("expected 1 uncovered line, got %d", result.UncoveredLines)
+	if result.TotalChangedLines != 0 {
+		t.Errorf("expected 0 scored changed lines, got %d", result.TotalChangedLines)
+	}
+	if result.UncoveredLines != 0 {
+		t.Errorf("expected 0 uncovered lines, got %d", result.UncoveredLines)
+	}
+	if len(result.SkippedFiles) != 1 {
+		t.Fatalf("expected 1 skipped file, got %d", len(result.SkippedFiles))
+	}
+	if result.SkippedFiles[0] != ".github/workflows/ci.yml" {
+		t.Errorf("expected skipped file to be the workflow yaml, got %q", result.SkippedFiles[0])
 	}
 
-	if result.CoveragePercentage != 0.0 {
-		t.Errorf("expected 0%% coverage, got %.1f%%", result.CoveragePercentage)
+	// A diff with no scorable lines must pass: there is nothing to gate on.
+	if !result.MeetsThreshold(80.0) {
+		t.Error("expected a diff with no scorable lines to meet the threshold vacuously")
+	}
+	if !result.MeetsThresholds(80.0, 80.0) {
+		t.Error("expected a diff with no scorable lines to meet split thresholds vacuously")
 	}
 }
 

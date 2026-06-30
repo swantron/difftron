@@ -20,6 +20,11 @@ type AnalysisResult struct {
 	// FileResults contains per-file analysis results
 	FileResults map[string]*FileResult
 
+	// SkippedFiles lists changed files that have no entry in the coverage report
+	// (e.g. YAML, Markdown, config, or any file the coverage tool does not track).
+	// These are excluded from scoring because difftron has no coverage signal for them.
+	SkippedFiles []string
+
 	// NewFileMetrics tracks coverage for new files only
 	NewFileMetrics *FileTypeMetrics
 	// ModifiedFileMetrics tracks coverage for modified files only
@@ -70,12 +75,22 @@ func AnalyzeWithBaseline(diffResult *hunk.ParseResult, coverageReport *coverage.
 
 	result := &AnalysisResult{
 		FileResults:         make(map[string]*FileResult),
+		SkippedFiles:        make([]string, 0),
 		NewFileMetrics:      &FileTypeMetrics{},
 		ModifiedFileMetrics: &FileTypeMetrics{},
 	}
 
 	// Process each changed file
 	for filePath, changedLines := range diffResult.ChangedLines {
+		// Files with no entry in the coverage report carry no coverage signal
+		// (YAML, Markdown, configs, lockfiles, or any file the coverage tool does
+		// not track). Counting their changed lines as "uncovered" would unfairly
+		// fail PRs that only touch such files, so they are skipped from scoring.
+		if coverage.FindMatchingPath(filePath, coverageReport.FileCoverage) == "" {
+			result.SkippedFiles = append(result.SkippedFiles, filePath)
+			continue
+		}
+
 		isNewFile := diffResult.IsNewFile(filePath)
 		fileResult := analyzeFile(filePath, changedLines, coverageReport, baselineReport, isNewFile)
 		result.FileResults[filePath] = fileResult
@@ -181,8 +196,13 @@ func analyzeFile(filePath string, changedLines map[int]bool, coverageReport *cov
 	return fileResult
 }
 
-// MeetsThreshold checks if the analysis result meets the specified coverage threshold
+// MeetsThreshold checks if the analysis result meets the specified coverage threshold.
+// A diff with no scorable changed lines (e.g. only docs/config files were touched)
+// passes vacuously — there is nothing to measure, so there is no regression.
 func (r *AnalysisResult) MeetsThreshold(threshold float64) bool {
+	if r.TotalChangedLines == 0 {
+		return true
+	}
 	return r.CoveragePercentage >= threshold
 }
 

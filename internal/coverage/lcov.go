@@ -150,6 +150,55 @@ func getRepoRoot() string {
 	return repoRootCache
 }
 
+var (
+	modulePathCache     string
+	modulePathCacheOnce sync.Once
+)
+
+// getModulePath reads the Go module path from go.mod (checking the repo root
+// first, then the working directory). Go coverage profiles prefix file paths
+// with this module path, so detecting it lets difftron strip the prefix for
+// ANY repo instead of relying on a hardcoded module name. Returns "" if go.mod
+// cannot be found or parsed.
+func getModulePath() string {
+	modulePathCacheOnce.Do(func() {
+		candidates := make([]string, 0, 2)
+		if root := getRepoRoot(); root != "" {
+			candidates = append(candidates, filepath.Join(root, "go.mod"))
+		}
+		candidates = append(candidates, "go.mod")
+
+		for _, p := range candidates {
+			data, err := os.ReadFile(p)
+			if err != nil {
+				continue
+			}
+			if mod := parseModuleDirective(string(data)); mod != "" {
+				modulePathCache = mod
+				return
+			}
+		}
+	})
+	return modulePathCache
+}
+
+// parseModuleDirective extracts the module path from go.mod content.
+// Returns "" if no `module` directive is found.
+func parseModuleDirective(goMod string) string {
+	for _, line := range strings.Split(goMod, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			mod := strings.TrimSpace(strings.TrimPrefix(line, "module "))
+			// Strip a trailing line comment, if any (e.g. `module x // note`).
+			if idx := strings.Index(mod, "//"); idx != -1 {
+				mod = strings.TrimSpace(mod[:idx])
+			}
+			return mod
+		}
+	}
+	return ""
+}
+
 // NormalizePath attempts to normalize file paths for comparison
 // This helps match git diff paths with LCOV file paths
 // It handles:

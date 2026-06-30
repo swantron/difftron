@@ -253,6 +253,70 @@ func TestConvertGoCoverageToLCOV_InvalidInputFile(t *testing.T) {
 	}
 }
 
+func TestParseModuleDirective(t *testing.T) {
+	tests := []struct {
+		name     string
+		goMod    string
+		expected string
+	}{
+		{
+			name:     "simple module",
+			goMod:    "module github.com/acme/widgets\n\ngo 1.22\n",
+			expected: "github.com/acme/widgets",
+		},
+		{
+			name:     "major version suffix",
+			goMod:    "module github.com/acme/widgets/v2\n\ngo 1.22\n",
+			expected: "github.com/acme/widgets/v2",
+		},
+		{
+			name:     "trailing comment",
+			goMod:    "module github.com/acme/widgets // the thing\n",
+			expected: "github.com/acme/widgets",
+		},
+		{
+			name:     "leading whitespace",
+			goMod:    "\t  module   github.com/acme/widgets\n",
+			expected: "github.com/acme/widgets",
+		},
+		{
+			name:     "no module directive",
+			goMod:    "go 1.22\n\nrequire example.com/x v1.0.0\n",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseModuleDirective(tt.goMod); got != tt.expected {
+				t.Errorf("parseModuleDirective() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestNormalizeGoFilePath_StripsDetectedModule verifies that the module path
+// detected from go.mod is stripped. These tests run inside the difftron repo,
+// so getModulePath() resolves to difftron's own module path.
+func TestNormalizeGoFilePath_StripsDetectedModule(t *testing.T) {
+	mod := getModulePath()
+	if mod == "" {
+		t.Skip("module path could not be detected (no go.mod found)")
+	}
+
+	full := mod + "/internal/analyzer/analyzer.go"
+	if got := normalizeGoFilePath(full); got != "internal/analyzer/analyzer.go" {
+		t.Errorf("normalizeGoFilePath(%q) = %q, want %q", full, got, "internal/analyzer/analyzer.go")
+	}
+
+	// A path under a different module is not stripped — only the current module
+	// is removed, so unrelated paths pass through unchanged.
+	other := "example.com/someone/elses/pkg/thing.go"
+	if got := normalizeGoFilePath(other); got != other {
+		t.Errorf("normalizeGoFilePath(%q) = %q, want it unchanged", other, got)
+	}
+}
+
 // createRealGoCoverageFile creates a real Go coverage file by running tests
 // This is a helper function that generates actual coverage data
 func createRealGoCoverageFile(t *testing.T) string {

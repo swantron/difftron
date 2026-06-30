@@ -241,18 +241,27 @@ func parseGoCoverageText(coverageOutPath string) (*Report, error) {
 	return report, nil
 }
 
-// normalizeGoFilePath normalizes Go file paths by removing module prefixes
+// normalizeGoFilePath normalizes Go file paths by removing the module prefix so
+// the path matches what appears in a git diff (e.g.
+// "github.com/acme/widgets/internal/foo.go" -> "internal/foo.go").
 func normalizeGoFilePath(filePath string) string {
 	// Convert Windows paths to forward slashes
 	filePath = filepath.ToSlash(filePath)
 
-	// Try to detect and remove common module prefixes
-	// This is a heuristic - actual module path detection would require go.mod parsing
+	// Preferred: strip the module path detected from go.mod. This works for any
+	// repository, not just difftron's own.
+	if modPath := filepath.ToSlash(getModulePath()); modPath != "" {
+		if strings.HasPrefix(filePath, modPath+"/") {
+			return strings.TrimPrefix(filePath, modPath+"/")
+		}
+	}
+
+	// Fallback for when go.mod can't be located (e.g. analyzing a profile from
+	// outside its repo): strip difftron's own known prefixes.
 	commonPrefixes := []string{
 		"github.com/swantron/difftron/",
 		"github.com\\swantron\\difftron\\",
 	}
-
 	for _, prefix := range commonPrefixes {
 		if strings.HasPrefix(filePath, prefix) {
 			return strings.TrimPrefix(filePath, prefix)
