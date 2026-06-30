@@ -171,8 +171,11 @@ jobs:
             
             const coverage = analysis.coverage_percentage || 0;
             const threshold = analysis.threshold || 80;
-            const emoji = coverage >= threshold ? '✅' : '❌';
-            const status = coverage >= threshold ? 'PASS' : 'FAIL';
+            // Defer to difftron's meets_threshold so a docs/config-only PR (no
+            // scorable changed lines) reads as PASS rather than 0% FAIL.
+            const meets = analysis.meets_threshold === true;
+            const emoji = meets ? '✅' : '❌';
+            const status = meets ? 'PASS' : 'FAIL';
             
             // Check for existing comment
             const comments = await github.rest.issues.listComments({
@@ -289,10 +292,17 @@ jobs:
             
             const coverage = analysis.coverage_percentage || 0;
             const threshold = analysis.threshold || 80;
-            const conclusion = coverage >= threshold ? 'success' : 'failure';
-            const title = coverage >= threshold 
-              ? `Coverage check passed: ${coverage.toFixed(1)}%`
-              : `Coverage check failed: ${coverage.toFixed(1)}% (threshold: ${threshold}%)`;
+            const changed = analysis.total_changed_lines || 0;
+            // Trust meets_threshold from difftron, which treats a diff with no
+            // scorable changed lines (e.g. docs/config only) as a vacuous pass.
+            // Recomputing `coverage >= threshold` here would fail such PRs at 0%.
+            const meets = analysis.meets_threshold === true;
+            const conclusion = meets ? 'success' : 'failure';
+            const title = !meets
+              ? `Coverage check failed: ${coverage.toFixed(1)}% (threshold: ${threshold}%)`
+              : changed === 0
+                ? 'Coverage check passed: no changed lines to evaluate'
+                : `Coverage check passed: ${coverage.toFixed(1)}%`;
             
             await github.rest.checks.create({
               owner: context.repo.owner,
