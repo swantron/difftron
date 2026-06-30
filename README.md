@@ -1,5 +1,8 @@
 # Difftron
 
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Difftron%20Delta%20Coverage%20Gate-2188ff?logo=github)](https://github.com/marketplace/actions/difftron-delta-coverage-gate)
+[![Release](https://img.shields.io/github/v/release/swantron/difftron?sort=semver)](https://github.com/swantron/difftron/releases/latest)
+
 **Fail the PR when new code isn't tested — in any language, in a few lines of YAML.**
 
 Difftron is a language-agnostic delta-coverage gate. It correlates your `git diff` with a standard coverage report (LCOV, Cobertura, or Go) and holds **only the lines you changed** to a threshold — so testing debt can't slip in behind a project-wide coverage number that barely moves.
