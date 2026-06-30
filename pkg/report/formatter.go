@@ -17,6 +17,7 @@ type AnalysisReport struct {
 	MeetsThreshold     bool                   `json:"meets_threshold"`
 	Threshold          float64                `json:"threshold,omitempty"`
 	Files              map[string]*FileReport `json:"files"`
+	SkippedFiles       []string               `json:"skipped_files,omitempty"`
 	NewFiles           *FileTypeReport        `json:"new_files,omitempty"`
 	ModifiedFiles      *FileTypeReport        `json:"modified_files,omitempty"`
 }
@@ -53,6 +54,7 @@ func ToJSON(result *analyzer.AnalysisResult, threshold float64) ([]byte, error) 
 		MeetsThreshold:     result.MeetsThreshold(threshold),
 		Threshold:          threshold,
 		Files:              make(map[string]*FileReport),
+		SkippedFiles:       result.SkippedFiles,
 	}
 
 	// Convert file results
@@ -99,6 +101,23 @@ func ToMarkdown(result *analyzer.AnalysisResult, threshold float64) string {
 	var sb strings.Builder
 
 	sb.WriteString("# Coverage Analysis Report\n\n")
+
+	// No scorable changed lines: every changed file was docs/config/untracked, so
+	// there is nothing to gate on. Report that plainly instead of a misleading 0%.
+	if result.TotalChangedLines == 0 {
+		sb.WriteString("## Summary\n\n")
+		sb.WriteString("- **Status**: ✅ PASS — no changed lines with coverage data to evaluate.\n\n")
+		if len(result.SkippedFiles) > 0 {
+			sb.WriteString(fmt.Sprintf("> ℹ️ %d changed file(s) had no coverage data and were not scored: ", len(result.SkippedFiles)))
+			quoted := make([]string, len(result.SkippedFiles))
+			for i, f := range result.SkippedFiles {
+				quoted[i] = "`" + f + "`"
+			}
+			sb.WriteString(strings.Join(quoted, ", "))
+			sb.WriteString("\n\n")
+		}
+		return sb.String()
+	}
 
 	// Summary
 	sb.WriteString("## Summary\n\n")
@@ -159,6 +178,17 @@ func ToMarkdown(result *analyzer.AnalysisResult, threshold float64) string {
 			}
 		}
 		sb.WriteString("\n")
+	}
+
+	// Files with no coverage data are not scored — call it out so the result is honest.
+	if len(result.SkippedFiles) > 0 {
+		sb.WriteString(fmt.Sprintf("> ℹ️ %d changed file(s) had no coverage data and were not scored: ", len(result.SkippedFiles)))
+		quoted := make([]string, len(result.SkippedFiles))
+		for i, f := range result.SkippedFiles {
+			quoted[i] = "`" + f + "`"
+		}
+		sb.WriteString(strings.Join(quoted, ", "))
+		sb.WriteString("\n\n")
 	}
 
 	return sb.String()
