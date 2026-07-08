@@ -33,7 +33,7 @@ jobs:
 
 That's it: the PR fails if changed-line coverage drops below `threshold`, and a sticky comment shows exactly which new lines are untested. A full copy-paste example lives in [`examples/quickstart.yml`](examples/quickstart.yml).
 
-> Difftron is also a standalone CLI with `analyze`, `ci`, and `health` commands for richer multi-test-type aggregation, baseline tracking, and AI test-gap suggestions — see below.
+> Difftron is also a standalone CLI with `analyze`, `ci`, and `health` commands for richer multi-test-type aggregation and baseline tracking — see below.
 
 ---
 
@@ -65,7 +65,7 @@ In large repositories, a developer can introduce 100 lines of untested logic, an
 
 ## The Solution
 
-Difftron parses the `git diff` to identify the specific line numbers modified in a PR. It then "intersects" this data with your coverage reports to identify exactly which new lines are untested. Finally, it uses Gemini AI to suggest the missing test cases.
+Difftron parses the `git diff` to identify the specific line numbers modified in a PR. It then "intersects" this data with your coverage reports to identify exactly which new lines are untested.
 
 ---
 
@@ -77,8 +77,6 @@ Difftron parses the `git diff` to identify the specific line numbers modified in
 | **Coverage Engine** | Ingests LCOV/Go coverage files to build an in-memory map of `File -> Line -> HitCount`. Supports multiple formats. |
 | **Health Analyzer** | Aggregates coverage across test types, tracks baseline coverage, and generates holistic health reports. |
 | **Analyzer** | Intersects diff hunks with coverage data, calculates coverage percentages, and identifies gaps. |
-| **Risk Engine** | Cross-references coverage with **Git Churn** (frequency of file changes) to flag high-risk gaps. (Planned) |
-| **Gemini Integration** | Provides "Agentic" test generation by sending uncovered hunks to the AI for boilerplate creation. (Planned) |
 
 ---
 
@@ -163,8 +161,6 @@ func ParseLCOV(filePath string) (map[string]map[int]int, error) {
 
 * **Universal Language Support**: Supports LCOV, Cobertura XML, and Go coverage formats (Go, TS, Java, Python, C++, etc.)
 * **Automatic Format Detection**: Automatically detects coverage format - no need to specify
-* **Risk Heatmaps**: Uses Git Churn data to identify "Hot Spot" files. Low coverage in a high-churn file triggers a **CRITICAL** alert.
-* **AI Test Generation**: Don't just report the gap—fix it. Difftron generates `_test.go` or `.test.ts` snippets for missing paths.
 * **CI/CD Native**: Designed to run as a GitHub Action or GitLab CI Job, posting rich Markdown reports directly to your PR/MR.
 * **Dogfooding Ready**: Use difftron on itself! Built-in support for analyzing your own code changes.
 
@@ -419,32 +415,6 @@ difftron health \
 
 ---
 
-### Phase 2: Risk Scoring (v0.2)
-
-**Goal**: Add git churn analysis and risk-based prioritization.
-
-#### Tasks:
-1. **Git Churn Analysis** (`internal/churn/`)
-   - Calculate file change frequency
-   - Analyze commit history for hot spots
-   - Weight recent changes more heavily
-   - Cache churn data for performance
-
-2. **Risk Engine** (`internal/risk/`)
-   - Combine coverage gaps with churn scores
-   - Assign risk levels: LOW, MEDIUM, HIGH, CRITICAL
-   - Prioritize uncovered lines in high-churn files
-   - Generate risk heatmap report
-
-3. **Enhanced Reporting**
-   - Color-coded output (red/yellow/green)
-   - Risk-based sorting of issues
-   - File-level and line-level risk scores
-
-**Deliverables**: Risk-aware coverage analysis with prioritized alerts.
-
----
-
 ### Phase 3: CI/CD Integration (v0.3)
 
 **Goal**: Integrate with GitHub Actions and GitLab CI.
@@ -471,33 +441,6 @@ difftron health \
 
 ---
 
-### Phase 4: AI Test Generation (v0.4)
-
-**Goal**: Generate test code suggestions using Gemini AI.
-
-#### Tasks:
-1. **Gemini Integration** (`internal/ai/`)
-   - Google AI SDK integration
-   - Prompt engineering for test generation
-   - Context-aware code suggestions
-   - Support for multiple languages (Go, TypeScript, Python, etc.)
-
-2. **Test Generation Engine**
-   - Extract uncovered code snippets
-   - Generate language-specific test templates
-   - Include imports and setup code
-   - Format output as code blocks
-
-3. **CLI Enhancement**
-   - `difftron generate` command
-   - `--ai-provider` flag (default: gemini)
-   - `--language` flag for test generation
-   - `--output-file` for saving generated tests
-
-**Deliverables**: AI-powered test generation for uncovered code paths.
-
----
-
 ## Project Structure
 
 ```
@@ -515,12 +458,9 @@ difftron/
 │   │   ├── cobertura.go         # Cobertura XML parser
 │   │   ├── cobertura_test.go    # Cobertura tests
 │   │   └── coverage_test.go
-│   ├── analyzer/
-│   │   ├── analyzer.go          # Core analysis logic
-│   │   └── analyzer_test.go
-│   ├── churn/                   # Git churn calculation (v0.2, planned)
-│   ├── risk/                    # Risk scoring (v0.2, planned)
-│   └── ai/                      # Gemini integration (v0.4, planned)
+│   └── analyzer/
+│       ├── analyzer.go          # Core analysis logic
+│       └── analyzer_test.go
 ├── pkg/
 │   └── report/
 │       └── formatter.go         # Report formatting
@@ -578,9 +518,7 @@ difftron analyze --coverage coverage.xml --output markdown > report.md
 
 * [x] **v0.1**: CLI Core (Diff + LCOV parsing). **COMPLETE**
 * [x] **v0.1+**: Health command, line-by-line coverage, separate thresholds, CI templates. **COMPLETE**
-* [ ] **v0.2**: Risk Scoring (Git Churn + Complexity).
 * [ ] **v0.3**: Enhanced PR/MR commenter with full API integration.
-* [ ] **v0.4**: Gemini-powered Test Generation.
 
 ---
 
@@ -659,8 +597,6 @@ go run scripts/task.go dogfood
 - **[CHANGELOG.md](CHANGELOG.md)**: Version history and changes
 
 ### Next Steps:
-- Implement Risk Engine (git churn analysis) for v0.2
-- Add Gemini AI integration for test generation
 - Enhanced format detection and error messages
 - Enhanced GitLab MR comment integration
 
